@@ -10,6 +10,18 @@ class VehicleNissanLeaf: public Vehicle
   public:
     VehicleNissanLeaf();
     void processFrame(uint8_t &busId, long unsigned int &frameId, unsigned char *frameData);
+
+    MetricInt* gear;
+    MetricInt* powered;
+    MetricInt* eco;
+    MetricInt* socGids;
+    MetricInt* soh;
+    MetricFloat* powerOutput;
+    MetricFloat* socPercent;
+    MetricFloat* rearWheelSpeed;
+    MetricFloat* leftWheelSpeed;
+    MetricFloat* rightWheelSpeed;
+    MetricInt* range;
 };
 
 #endif

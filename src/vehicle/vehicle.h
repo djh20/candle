@@ -3,28 +3,24 @@
 
 #include "metric/metric.h"
 #include "can/can_bus.h"
-#include <map>
 #include <mcp_can.h>
+#include <ArduinoJson.h>
 
 class Vehicle 
 {
   public:
     Vehicle();
 
-    void registerBus(CanBus* bus);
-    void registerMetric(Metric* metric);
-    void logMetrics();
-    void update();
-    virtual void processFrame(uint8_t &busId, long unsigned int &frameId, unsigned char *frameData);
+    void registerBus(CanBus *bus);
+    void registerMetric(Metric *metric);
+    bool update(char *jsonBuffer, uint16_t jsonBufferSize);
+    void metricsToJson(char *jsonBuffer, uint16_t jsonBufferSize);
+    virtual void processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData);
     
-    //Metric* metrics[64] = {};
-
-    CanBus* busses[8];
-    //std::map<const char*, MCP_CAN*> busses;
+    CanBus *busses[8];
     int totalBusses;
 
-    std::map<const char*, Metric*> metrics;
-    std::map<const char*, Metric*>::iterator metricsIt;
+    Metric *metrics[64];
     int totalMetrics;
 };
 

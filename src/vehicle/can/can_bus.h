@@ -22,8 +22,8 @@ class CanBus
     MCP_CAN* mcp;
 
     long unsigned int frameId;
-    unsigned char frameData[8];
-    unsigned char frameLen = 0;
+    byte frameData[8];
+    byte frameLen = 0;
 };
 
 #endif

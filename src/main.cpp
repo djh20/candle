@@ -20,7 +20,7 @@ Vehicle* vehicle;
 /*
 void handleRequest() {
   DynamicJsonDocument doc(1024);
-  doc["gps_position"][0] = -53.753251;
+  doc["gps_position"][0] = -53.753251;+
   doc["gps_position"][1] = 127.385923;
 
   char json[256];
@@ -33,18 +33,16 @@ void handleRequest() {
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) 
 {
-    switch (type) {
-      case WS_EVT_CONNECT:
-        Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-        client->text("[\"test\"]");
-        break;
-      case WS_EVT_DISCONNECT:
-        Serial.printf("WebSocket client #%u disconnected\n", client->id());
-        break;
-      case WS_EVT_DATA:
-      case WS_EVT_PONG:
-      case WS_EVT_ERROR:
-        break;
+  if (type == WS_EVT_CONNECT) 
+  {
+    Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+    char json[1024];
+    vehicle->metricsToJson(json, 1024);
+    client->text(json);
+  }
+  else if (type == WS_EVT_DISCONNECT)
+  {
+    Serial.printf("WebSocket client #%u disconnected\n", client->id());
   }
 }
 
@@ -80,19 +78,35 @@ void setup()
   //server.on("/", handleRequest);
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
   {
-    Serial.print("Total Metrics: ");
-    Serial.println(vehicle->totalMetrics);
+    //AsyncWebParameter* idParam = request->getParam("id");
+    //AsyncWebParameter* valueParam = request->getParam("value");
 
-    vehicle->logMetrics();
-    
-    request->send(200, "text/html", "<h1>CANdle is running!</h1>");
+    //Serial.print("Total Metrics: ");
+    //Serial.println(vehicle->totalMetrics);
+
+    //for (int i = 0; i < vehicle->totalMetrics; i++)
+    //{
+    //  Metric* metric = vehicle->metrics[i];
+    //}
+
+    //MetricFloat* powerOutput = (MetricFloat*) vehicle->metrics[2];
+    //powerOutput->setValue(powerOutput->value + 0.05);
+
+    request->send(200, "application/json", "[]");
   });
   server.begin();
 }
 
 void loop() 
 {
-  //server.handleClient();
-  vehicle->update();
+  char json[1024];
+  bool jsonNotEmpty = vehicle->update(json, 1024);
+
+  if (jsonNotEmpty) 
+  {
+    //Serial.println(json);
+    ws.textAll(json);
+  }
+
   ws.cleanupClients();
 }
