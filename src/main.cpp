@@ -5,8 +5,8 @@
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 
-const char* ssid = "ESP8266";
-const char* password = "password";
+const char* ssid = "Leaf";
+const char* password = "candle123";
 
 IPAddress localIP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
