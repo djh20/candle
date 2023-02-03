@@ -17,18 +17,7 @@ AsyncWebSocket ws("/ws");
 
 Vehicle* vehicle;
 
-/*
-void handleRequest() {
-  DynamicJsonDocument doc(1024);
-  doc["gps_position"][0] = -53.753251;+
-  doc["gps_position"][1] = 127.385923;
-
-  char json[256];
-  serializeJson(doc, json);
-
-  server.send(200, "application/json", json);
-}
-*/
+uint32_t lastUpdateMillis = 0;
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) 
@@ -55,6 +44,7 @@ void setup()
 
   vehicle = new VehicleNissanLeaf();
 
+  /*
   WiFi.begin("HannWiFi", "yellowyellow21");
 
   Serial.print("Connecting to WiFi");
@@ -67,7 +57,8 @@ void setup()
 
   Serial.print("Connected, IP address: ");
   Serial.println(WiFi.localIP());
-
+  */
+ 
   WiFi.softAPConfig(localIP, gateway, subnet);
   WiFi.softAP(ssid, password, 1, 1);
   //Serial.println(WiFi.softAPIP());
@@ -99,12 +90,30 @@ void setup()
 
 void loop() 
 {
+  int32_t now = millis();
+  
+  if ((now - lastUpdateMillis) >= 50)
+  {
+    VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) vehicle;
+    int32_t speed = leaf->rearWheelSpeed->value++;
+    if (speed >= 100) {
+      speed = 0;
+    }
+    
+    Serial.println(speed);
+
+    leaf->rearWheelSpeed->setValue(speed);
+    leaf->leftWheelSpeed->setValue(speed);
+    leaf->rightWheelSpeed->setValue(speed);
+    lastUpdateMillis = now;
+  }
+
   char json[1024];
   bool jsonNotEmpty = vehicle->update(json, 1024);
 
   if (jsonNotEmpty) 
   {
-    //Serial.println(json);
+    Serial.println(json);
     ws.textAll(json);
   }
 
