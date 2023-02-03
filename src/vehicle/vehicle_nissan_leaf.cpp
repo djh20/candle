@@ -29,7 +29,6 @@ void VehicleNissanLeaf::processFrame(uint8_t &busId, long unsigned int &frameId,
 {
   if (busId == BUS_EV) 
   {
-    Serial.println(frameId, HEX);
     if (frameId == 0x11a) // Shift Controller
     {
       gear->setValue((frameData[0] & 0xF0) >> 4);
