@@ -23,10 +23,8 @@ void Vehicle::registerMetric(Metric* metric)
   metrics[totalMetrics++] = metric;
 }
 
-bool Vehicle::update(char *jsonBuffer, uint16_t jsonBufferSize)
+void Vehicle::update(DynamicJsonDocument &doc)
 {
-  DynamicJsonDocument doc(jsonBufferSize);
-  
   for (int i = 0; i < totalBusses; i++) 
   {
     CanBus* bus = busses[i];
@@ -45,24 +43,15 @@ bool Vehicle::update(char *jsonBuffer, uint16_t jsonBufferSize)
       metric->addToJsonDoc(doc);
     }
   }
-
-  if (doc.isNull()) return false;
-
-  serializeJson(doc, jsonBuffer, jsonBufferSize);
-  return true;
 }
 
-void Vehicle::metricsToJson(char *jsonBuffer, uint16_t jsonBufferSize)
+void Vehicle::metricsToJson(DynamicJsonDocument &doc)
 {
-  DynamicJsonDocument doc(jsonBufferSize);
-
   for (int i = 0; i < totalMetrics; i++)
   {
     Metric* metric = metrics[i];
     metric->addToJsonDoc(doc);
   }
-
-  serializeJson(doc, jsonBuffer, jsonBufferSize);
 }
 
 void Vehicle::processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData) {}

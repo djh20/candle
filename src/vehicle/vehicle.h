@@ -13,8 +13,8 @@ class Vehicle
 
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
-    bool update(char *jsonBuffer, uint16_t jsonBufferSize);
-    void metricsToJson(char *jsonBuffer, uint16_t jsonBufferSize);
+    void update(DynamicJsonDocument &doc);
+    void metricsToJson(DynamicJsonDocument &doc);
     virtual void processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData);
     
     CanBus *busses[8];
