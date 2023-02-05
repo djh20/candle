@@ -5,6 +5,8 @@
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 
+#define JSON_DOC_SIZE 1024
+
 const char* ssid = "Leaf";
 const char* password = "candle123";
 
@@ -15,9 +17,12 @@ IPAddress subnet(255, 255, 255, 0);
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
-Vehicle* vehicle;
+VehicleNissanLeaf* vehicle; // Change back to Vehicle*
 
 uint32_t lastUpdateMillis = 0;
+
+DynamicJsonDocument doc(JSON_DOC_SIZE);
+char jsonBuffer[JSON_DOC_SIZE];
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) 
@@ -25,9 +30,13 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   if (type == WS_EVT_CONNECT) 
   {
     Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
-    char json[1024];
-    vehicle->metricsToJson(json, 1024);
-    client->text(json);
+
+    memset(jsonBuffer, 0, JSON_DOC_SIZE);
+    doc.clear();
+    vehicle->metricsToJson(doc);
+    serializeJson(doc, jsonBuffer);
+
+    client->text(jsonBuffer);
   }
   else if (type == WS_EVT_DISCONNECT)
   {
@@ -38,30 +47,17 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void setup() 
 {
   Serial.begin(9600);
-  delay(50);
+  delay(200);
 
   Serial.println();
 
   vehicle = new VehicleNissanLeaf();
+  vehicle->powered->setValue(1);
+  vehicle->gear->setValue(4);
 
-  /*
-  WiFi.begin("HannWiFi", "yellowyellow21");
-
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(250);
-    Serial.print(".");
-  }
-  Serial.println();
-
-  Serial.print("Connected, IP address: ");
-  Serial.println(WiFi.localIP());
-  */
- 
+  WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(localIP, gateway, subnet);
-  WiFi.softAP(ssid, password, 1, 1);
-  //Serial.println(WiFi.softAPIP());
+  WiFi.softAP(ssid, password, 1, 0);
 
   ws.onEvent(onEvent);
   server.addHandler(&ws);
@@ -82,8 +78,28 @@ void setup()
 
     //MetricFloat* powerOutput = (MetricFloat*) vehicle->metrics[2];
     //powerOutput->setValue(powerOutput->value + 0.05);
+    /*
+    memset(jsonBuffer, 0, JSON_DOC_SIZE);
+    doc.clear();
+    vehicle->metricsToJson(doc);
+    serializeJson(doc, jsonBuffer);
 
-    request->send(200, "application/json", "[]");
+    request->send(200, "application/json", jsonBuffer);
+    */
+    //i = 0;
+    AsyncWebServerResponse *response = request->beginChunkedResponse("text/plain", [](uint8_t *buffer, size_t maxLen, size_t index) -> size_t {
+      //Write up to "maxLen" bytes into "buffer" and return the amount written.
+      //index equals the amount of bytes that have been already sent
+      //You will be asked for more data until 0 is returned
+      //Keep in mind that you can not delay or yield waiting for more data!
+      //if (i >= 32) return 0;
+      //i++;
+      if (index >= 524288) return 0;
+      memset(buffer, 97, maxLen);
+      return maxLen;
+    });
+    request->send(response);
+
   });
   server.begin();
 }
@@ -92,29 +108,26 @@ void loop()
 {
   int32_t now = millis();
   
-  if ((now - lastUpdateMillis) >= 50)
+  if ((now - lastUpdateMillis) >= 20)
   {
-    VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) vehicle;
-    int32_t speed = leaf->rearWheelSpeed->value++;
+    float speed = vehicle->rearWheelSpeed->value + 1;
     if (speed >= 100) {
       speed = 0;
     }
-    
-    Serial.println(speed);
-
-    leaf->rearWheelSpeed->setValue(speed);
-    leaf->leftWheelSpeed->setValue(speed);
-    leaf->rightWheelSpeed->setValue(speed);
+    vehicle->rearWheelSpeed->setValue(speed);
+    vehicle->leftWheelSpeed->setValue(speed);
+    vehicle->rightWheelSpeed->setValue(speed);
     lastUpdateMillis = now;
   }
 
-  char json[1024];
-  bool jsonNotEmpty = vehicle->update(json, 1024);
+  doc.clear();
+  vehicle->update(doc);
 
-  if (jsonNotEmpty) 
+  if (!doc.isNull()) 
   {
-    Serial.println(json);
-    ws.textAll(json);
+    memset(jsonBuffer, 0, JSON_DOC_SIZE);
+    serializeJson(doc, jsonBuffer);
+    ws.textAll(jsonBuffer);
   }
 
   ws.cleanupClients();
