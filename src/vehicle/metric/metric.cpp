@@ -3,16 +3,22 @@
 Metric::Metric(const char* id, uint16_t cooldown) 
 {
   this->id = id;
-  this->cooldown = cooldown;
+  this->_cooldown = cooldown;
 }
 
-bool Metric::update(uint32_t &now) {
-  return false;
+/*
+void Metric::onUpdate(MetricUpdateHandler updateHandler) 
+{
+  _updateHandler = updateHandler;
 }
-bool Metric::canUpdate(uint32_t &now) {
-  return (now - lastUpdateMillis) >= cooldown;
+*/
+
+bool Metric::isCooldownActive(uint32_t &now) 
+{
+  return (now - _lastApplyMillis) < _cooldown;
 }
 
+bool Metric::applyValue(bool ignoreCooldown) { return false; }
 void Metric::reset() {}
 void Metric::addToJsonDoc(DynamicJsonDocument &doc) {}
 
@@ -21,22 +27,26 @@ MetricInt::MetricInt(const char* id, int32_t defaultValue, uint16_t cooldown) : 
 {
   this->defaultValue = defaultValue;
   this->value = defaultValue;
-  this->lastUpdateValue = defaultValue;
+  this->pendingValue = defaultValue;
 }
 
-void MetricInt::setValue(int32_t newValue) 
+void MetricInt::setValue(int32_t newValue, bool applyInstantly)
 {
-  if (value == newValue) return;
-  value = newValue;
+  pendingValue = newValue;
+  if (applyInstantly) applyValue(true);
 }
 
-bool MetricInt::update(uint32_t &now)
+bool MetricInt::applyValue(bool ignoreCooldown)
 {
-  if (!canUpdate(now)) return false;
-  if (lastUpdateValue == value) return false;
-  
-  lastUpdateMillis = now;
-  lastUpdateValue = value;
+  if (value == pendingValue) return false;
+
+  uint32_t now = millis();
+  if (!ignoreCooldown && isCooldownActive(now)) return false;
+
+  value = pendingValue;
+  _lastApplyMillis = now;
+  //if (_updateHandler != NULL) _updateHandler(this);
+
   return true;
 }
 
@@ -48,22 +58,25 @@ MetricFloat::MetricFloat(const char* id, float defaultValue, uint16_t cooldown) 
 {
   this->defaultValue = defaultValue;
   this->value = defaultValue;
-  this->lastUpdateValue = defaultValue;
+  this->pendingValue = defaultValue;
 }
 
-void MetricFloat::setValue(float newValue) 
+void MetricFloat::setValue(float newValue, bool applyInstantly)
 {
-  if (value == newValue) return;
-  value = newValue;
+  pendingValue = newValue;
+  if (applyInstantly) applyValue(true);
 }
 
-bool MetricFloat::update(uint32_t &now)
+bool MetricFloat::applyValue(bool ignoreCooldown)
 {
-  if (!canUpdate(now)) return false;
-  if (lastUpdateValue == value) return false;
+  if (value == pendingValue) return false;
+
+  uint32_t now = millis();
+  if (!ignoreCooldown && isCooldownActive(now)) return false;
+
+  value = pendingValue;
+  _lastApplyMillis = now;
   
-  lastUpdateMillis = now;
-  lastUpdateValue = value;
   return true;
 }
 

@@ -13,9 +13,13 @@ class Vehicle
 
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
-    void update(DynamicJsonDocument &doc);
     void metricsToJson(DynamicJsonDocument &doc);
+    void readAndProcessBusData();
+    void applyMetrics(DynamicJsonDocument &updatedMetrics);
     virtual void processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData);
+    virtual void metricChanged(Metric *metric);
+
+    bool idle = true;
     
     CanBus *busses[8];
     int totalBusses;

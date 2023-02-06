@@ -23,7 +23,7 @@ void Vehicle::registerMetric(Metric* metric)
   metrics[totalMetrics++] = metric;
 }
 
-void Vehicle::update(DynamicJsonDocument &doc)
+void Vehicle::readAndProcessBusData()
 {
   for (int i = 0; i < totalBusses; i++) 
   {
@@ -31,16 +31,17 @@ void Vehicle::update(DynamicJsonDocument &doc)
     bool gotFrame = bus->readFrame();
     if (gotFrame) processFrame(bus->id, bus->frameId, bus->frameData);
   }
+}
 
-  uint32_t now = millis();
-
+void Vehicle::applyMetrics(DynamicJsonDocument &updatedMetrics)
+{
   for (int i = 0; i < totalMetrics; i++)
   {
     Metric* metric = metrics[i];
-    bool hasUpdated = metric->update(now); 
-    if (hasUpdated) 
+    bool updated = metric->applyValue(); 
+    if (updated) 
     {
-      metric->addToJsonDoc(doc);
+      metric->addToJsonDoc(updatedMetrics);
     }
   }
 }

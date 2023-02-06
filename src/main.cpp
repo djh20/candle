@@ -4,11 +4,9 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
+#include "config.h"
 
 #define JSON_DOC_SIZE 1024
-
-const char* ssid = "Leaf";
-const char* password = "candle123";
 
 IPAddress localIP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
@@ -21,6 +19,21 @@ Vehicle* vehicle;
 
 DynamicJsonDocument doc(JSON_DOC_SIZE);
 char jsonBuffer[JSON_DOC_SIZE];
+
+uint32_t lastConnectMillis = 0;
+
+void reconnectToWifi()
+{
+  uint32_t now = millis();
+
+  // Only connect again after 10 seconds.
+  if (now - lastConnectMillis < 10000) return;
+
+  Serial.printf("Reconnecting to %s...\n", WIFI_HOME_SSID);
+
+  lastConnectMillis = now;
+  WiFi.reconnect();
+}
 
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) 
@@ -45,15 +58,20 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void setup() 
 {
   Serial.begin(9600);
-  delay(50);
+  delay(200);
 
   Serial.println();
 
   vehicle = new VehicleNissanLeaf();
 
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.setAutoReconnect(false);
+
+  Serial.printf("Connecting to %s...\n", WIFI_HOME_SSID);
+  WiFi.begin(WIFI_HOME_SSID, WIFI_HOME_PASSWORD);
+
   WiFi.softAPConfig(localIP, gateway, subnet);
-  WiFi.softAP(ssid, password, 1, 1);
+  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, 1, 1);
 
   ws.onEvent(onEvent);
   server.addHandler(&ws);
@@ -68,15 +86,34 @@ void setup()
 
     request->send(200, "application/json", jsonBuffer);
   });
+
+  server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
+
+    leaf->powered->setValue(1);
+    leaf->gear->setValue(4);
+
+    float speed = leaf->rearWheelSpeed->value + 1;
+
+    leaf->rearWheelSpeed->setValue(speed);
+    leaf->leftWheelSpeed->setValue(speed);
+    leaf->rightWheelSpeed->setValue(speed);
+
+    request->send(200, "text/plain", "Test");
+  });
   server.begin();
 }
 
 void loop() 
 {
-  doc.clear();
-  vehicle->update(doc);
+  if (vehicle->idle && !WiFi.isConnected()) reconnectToWifi();
 
-  if (!doc.isNull()) 
+  doc.clear();
+  vehicle->readAndProcessBusData();
+  vehicle->applyMetrics(doc);
+
+  if (!doc.isNull())
   {
     memset(jsonBuffer, 0, JSON_DOC_SIZE);
     serializeJson(doc, jsonBuffer);
