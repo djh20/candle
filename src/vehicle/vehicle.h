@@ -15,9 +15,8 @@ class Vehicle
     void registerMetric(Metric *metric);
     void metricsToJson(DynamicJsonDocument &doc);
     void readAndProcessBusData();
-    void applyMetrics(DynamicJsonDocument &updatedMetrics);
+    void getUpdatedMetrics(DynamicJsonDocument &updatedMetrics, uint32_t sinceMillis);
     virtual void processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData);
-    virtual void metricChanged(Metric *metric);
 
     bool idle = true;
     

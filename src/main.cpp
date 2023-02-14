@@ -7,6 +7,7 @@
 #include "config.h"
 
 #define JSON_DOC_SIZE 1024
+#define SEND_INTERVAL 50
 
 IPAddress localIP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
@@ -21,6 +22,8 @@ DynamicJsonDocument doc(JSON_DOC_SIZE);
 char jsonBuffer[JSON_DOC_SIZE];
 
 uint32_t lastConnectMillis = 0;
+uint32_t lastSendMillis = 0;
+uint32_t sendCounter = 0;
 
 void reconnectToWifi()
 {
@@ -108,16 +111,32 @@ void setup()
 void loop() 
 {
   if (vehicle->idle && !WiFi.isConnected()) reconnectToWifi();
+  
+  uint32_t now = millis();
 
-  doc.clear();
-  vehicle->readAndProcessBusData();
-  vehicle->applyMetrics(doc);
-
-  if (!doc.isNull())
+  if (now - lastSendMillis > SEND_INTERVAL)
   {
-    memset(jsonBuffer, 0, JSON_DOC_SIZE);
-    serializeJson(doc, jsonBuffer);
-    ws.textAll(jsonBuffer);
+    doc.clear();
+
+    if (++sendCounter >= 50)
+    {
+      vehicle->metricsToJson(doc);
+      sendCounter = 0;
+    } 
+    else 
+    {
+      vehicle->readAndProcessBusData();
+      vehicle->getUpdatedMetrics(doc, now - SEND_INTERVAL);
+    }
+   
+    if (!doc.isNull())
+    {
+      memset(jsonBuffer, 0, JSON_DOC_SIZE);
+      serializeJson(doc, jsonBuffer);
+      ws.textAll(jsonBuffer);
+    }
+
+    lastSendMillis = now;
   }
 
   ws.cleanupClients();

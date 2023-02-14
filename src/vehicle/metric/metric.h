@@ -2,57 +2,46 @@
 #define _METRIC_H_
 
 #include <ArduinoJson.h>
-#define DEFAULT_COOLDOWN 50
+
+//class Metric;
+//typedef std::function<void(Metric*)> MetricUpdateHandler;
+//typedef void(*MetricUpdateHandler)(Metric);
 
 class Metric
 {
-  //typedef std::function<void(Metric *metric)> MetricUpdateHandler;
-
   public:
-    Metric(const char* id, uint16_t cooldown = DEFAULT_COOLDOWN);
+    Metric(const char* id);
 
-    bool isCooldownActive(uint32_t &now);
-    //void onUpdate(MetricUpdateHandler updateHandler);
-
-    virtual bool applyValue(bool ignoreCooldown = false);
     virtual void reset();
     virtual void addToJsonDoc(DynamicJsonDocument &doc);
 
     const char* id;
-
-  protected:
-    uint16_t _cooldown;
-    uint32_t _lastApplyMillis = 0;
-    //MetricUpdateHandler _updateHandler = NULL;
+    uint32_t lastUpdateMillis;
 };
 
 class MetricInt: public Metric 
 {
   public:
-    MetricInt(const char* id, int32_t defaultValue, uint16_t cooldown = DEFAULT_COOLDOWN);
+    MetricInt(const char* id, int32_t defaultValue);
 
-    void setValue(int32_t newValue, bool applyInstantly = false);
-    bool applyValue(bool ignoreCooldown = false);
+    void setValue(int32_t newValue);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 
     int32_t value;
-    int32_t pendingValue;
     int32_t defaultValue;
 };
 
 class MetricFloat: public Metric 
 {
   public:
-    MetricFloat(const char* id, float defaultValue, uint16_t cooldown = DEFAULT_COOLDOWN);
+    MetricFloat(const char* id, float defaultValue);
 
-    void setValue(float newValue, bool applyInstantly = false);
-    bool applyValue(bool ignoreCooldown = false);
+    void setValue(float newValue);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 
     float value;
-    float pendingValue;
     float defaultValue;
 };
 

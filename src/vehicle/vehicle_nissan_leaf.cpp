@@ -3,11 +3,6 @@
 #include <Arduino.h>
 #include "can/can_bus.h"
 
-#define WH_PER_GID 80
-#define KM_PER_KWH 6.2
-#define NEW_BATTERY_CAPACITY 24
-#define MAX_SOC_PERCENT 95
-
 VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() 
 {
   registerBus(new CanBus(BUS_EV, D8, D2, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
@@ -19,9 +14,9 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle()
   registerMetric(soh = new MetricInt("soh", 0));
   registerMetric(powerOutput = new MetricFloat("power_output", 0));
   registerMetric(socPercent = new MetricFloat("soc_percent", 0));
-  registerMetric(rearWheelSpeed = new MetricFloat("rear_wheel_speed", 0, 100));
-  registerMetric(leftWheelSpeed = new MetricFloat("left_wheel_speed", 0, 100));
-  registerMetric(rightWheelSpeed = new MetricFloat("right_wheel_speed", 0, 100));
+  registerMetric(rearWheelSpeed = new MetricFloat("rear_wheel_speed", 0));
+  registerMetric(leftWheelSpeed = new MetricFloat("left_wheel_speed", 0));
+  registerMetric(rightWheelSpeed = new MetricFloat("right_wheel_speed", 0));
   registerMetric(range = new MetricInt("range", 0));
 }
 
@@ -34,6 +29,8 @@ void VehicleNissanLeaf::processFrame(uint8_t &busId, long unsigned int &frameId,
       gear->setValue((frameData[0] & 0xF0) >> 4);
       powered->setValue((frameData[1] & 0x40) >> 6);
       eco->setValue((frameData[1] & 0x10) >> 4);
+
+      idle = !powered->value;
     }
     else if (frameId == 0x5bc) // Lithium Battery Controller (500ms)
     {

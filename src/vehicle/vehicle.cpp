@@ -33,12 +33,12 @@ void Vehicle::readAndProcessBusData()
   }
 }
 
-void Vehicle::applyMetrics(DynamicJsonDocument &updatedMetrics)
+void Vehicle::getUpdatedMetrics(DynamicJsonDocument &updatedMetrics, uint32_t sinceMillis)
 {
   for (int i = 0; i < totalMetrics; i++)
   {
     Metric* metric = metrics[i];
-    bool updated = metric->applyValue(); 
+    bool updated = (metric->lastUpdateMillis >= sinceMillis); 
     if (updated) 
     {
       metric->addToJsonDoc(updatedMetrics);
