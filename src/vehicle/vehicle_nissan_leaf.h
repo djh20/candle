@@ -24,7 +24,6 @@ class VehicleNissanLeaf: public Vehicle
     MetricFloat* powerOutput;
     MetricFloat* socPercent;
     MetricFloat* speed;
-    MetricFloat* rearSpeed;
     MetricFloat* leftSpeed;
     MetricFloat* rightSpeed;
     MetricInt* range;

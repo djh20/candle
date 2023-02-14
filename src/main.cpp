@@ -100,7 +100,6 @@ void setup()
     float speed = leaf->speed->value + 1;
 
     leaf->speed->setValue(speed);
-    leaf->rearSpeed->setValue(speed);
     leaf->leftSpeed->setValue(speed);
     leaf->rightSpeed->setValue(speed);
 
