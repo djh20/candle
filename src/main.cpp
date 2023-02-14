@@ -112,6 +112,8 @@ void loop()
 {
   if (vehicle->idle && !WiFi.isConnected()) reconnectToWifi();
   
+  vehicle->readAndProcessBusData();
+  
   uint32_t now = millis();
 
   if (now - lastSendMillis > SEND_INTERVAL)
@@ -125,7 +127,6 @@ void loop()
     } 
     else 
     {
-      vehicle->readAndProcessBusData();
       vehicle->getUpdatedMetrics(doc, now - SEND_INTERVAL);
     }
    
