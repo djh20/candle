@@ -97,11 +97,12 @@ void setup()
     leaf->powered->setValue(1);
     leaf->gear->setValue(4);
 
-    float speed = leaf->rearWheelSpeed->value + 1;
+    float speed = leaf->speed->value + 1;
 
-    leaf->rearWheelSpeed->setValue(speed);
-    leaf->leftWheelSpeed->setValue(speed);
-    leaf->rightWheelSpeed->setValue(speed);
+    leaf->speed->setValue(speed);
+    leaf->rearSpeed->setValue(speed);
+    leaf->leftSpeed->setValue(speed);
+    leaf->rightSpeed->setValue(speed);
 
     request->send(200, "text/plain", "Test");
   });

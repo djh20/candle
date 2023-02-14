@@ -14,9 +14,10 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle()
   registerMetric(soh = new MetricInt("soh", 0));
   registerMetric(powerOutput = new MetricFloat("power_output", 0));
   registerMetric(socPercent = new MetricFloat("soc_percent", 0));
-  registerMetric(rearWheelSpeed = new MetricFloat("rear_wheel_speed", 0));
-  registerMetric(leftWheelSpeed = new MetricFloat("left_wheel_speed", 0));
-  registerMetric(rightWheelSpeed = new MetricFloat("right_wheel_speed", 0));
+  registerMetric(speed = new MetricFloat("speed", 0));
+  registerMetric(rearSpeed = new MetricFloat("rear_speed", 0));
+  registerMetric(leftSpeed = new MetricFloat("left_speed", 0));
+  registerMetric(rightSpeed = new MetricFloat("right_speed", 0));
   registerMetric(range = new MetricInt("range", 0));
 }
 
@@ -71,9 +72,11 @@ void VehicleNissanLeaf::processFrame(uint8_t &busId, long unsigned int &frameId,
     }
     else if (frameId == 0x284) // ABS Module
     {
-      rearWheelSpeed->setValue(((frameData[4] << 8) | frameData[5]) / 100);
-      leftWheelSpeed->setValue(((frameData[2] << 8) | frameData[3]) / 208);
-      rightWheelSpeed->setValue(((frameData[0] << 8) | frameData[1]) / 208);
+      rearSpeed->setValue(((frameData[4] << 8) | frameData[5]) / 100);
+      leftSpeed->setValue(((frameData[2] << 8) | frameData[3]) / 208);
+      rightSpeed->setValue(((frameData[0] << 8) | frameData[1]) / 208);
+
+      speed->setValue((leftSpeed->value + rightSpeed->value) / 2);
     }
   }
 }
