@@ -12,11 +12,13 @@ class Metric
   public:
     Metric(const char* id);
 
+    void onUpdate(std::function<void()> handler);
     virtual void reset();
     virtual void addToJsonDoc(DynamicJsonDocument &doc);
 
     const char* id;
-    uint32_t lastUpdateMillis;
+    uint32_t lastUpdateMillis = 0;
+    std::function<void()> updateHandler;
 };
 
 class MetricInt: public Metric 

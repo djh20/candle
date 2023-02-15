@@ -4,7 +4,7 @@
 
 Vehicle::Vehicle() {}
 
-void Vehicle::registerBus(CanBus* bus)
+void Vehicle::registerBus(CanBus *bus)
 {
   bool initialized = bus->init();
 
@@ -17,9 +17,14 @@ void Vehicle::registerBus(CanBus* bus)
   Logger.log(Info, "vehicle", "Registered bus %u", bus->id);
 }
 
-void Vehicle::registerMetric(Metric* metric) 
+void Vehicle::registerMetric(Metric *metric) 
 {
   metrics[totalMetrics++] = metric;
+
+  metric->onUpdate([this, metric]() {
+    metricUpdated(metric);
+  });
+
   Logger.log(Info, "vehicle", "Registered metric: %s", metric->id);
 }
 
@@ -56,3 +61,5 @@ void Vehicle::metricsToJson(DynamicJsonDocument &doc)
 }
 
 void Vehicle::processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData) {}
+void Vehicle::updateExtraMetrics() {}
+void Vehicle::metricUpdated(Metric *metric) {}

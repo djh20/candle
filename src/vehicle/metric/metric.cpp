@@ -5,6 +5,11 @@ Metric::Metric(const char* id)
   this->id = id;
 }
 
+void Metric::onUpdate(std::function<void()> handler)
+{
+  updateHandler = handler;
+}
+
 void Metric::reset() {}
 void Metric::addToJsonDoc(DynamicJsonDocument &doc) {}
 
@@ -20,6 +25,7 @@ void MetricInt::setValue(int32_t newValue)
   if (newValue == value) return;
   value = newValue;
   lastUpdateMillis = millis();
+  if (updateHandler) updateHandler();
 }
 
 void MetricInt::reset() { setValue(defaultValue); }
@@ -37,6 +43,7 @@ void MetricFloat::setValue(float newValue)
   if (newValue == value) return;
   value = newValue;
   lastUpdateMillis = millis();
+  if (updateHandler) updateHandler();
 }
 
 void MetricFloat::reset() { setValue(defaultValue); }

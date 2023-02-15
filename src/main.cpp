@@ -34,7 +34,13 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 {
   if (type == WS_EVT_CONNECT) 
   {
-    Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+    Logger.log(
+      Debug, 
+      "ws", 
+      "WebSocket client #%u connected from %s", 
+      client->id(), 
+      client->remoteIP().toString().c_str()
+    );
 
     memset(jsonBuffer, 0, JSON_DOC_SIZE);
     doc.clear();
@@ -45,7 +51,7 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   }
   else if (type == WS_EVT_DISCONNECT)
   {
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    Logger.log(Debug, "ws", "WebSocket client #%u disconnected", client->id());
   }
 }
 
@@ -56,7 +62,7 @@ void onStationModeConnected(const WiFiEventStationModeConnected& event)
 
 void setup() 
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   delay(1000);
 
   // Print splash art & info
@@ -95,10 +101,30 @@ void setup()
     request->send(200, "application/json", jsonBuffer);
   });
 
+  server.on("/api/vehicle/metrics/set", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    //AsyncWebParameter *id = request->getParam("id");
+  });
+
   server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
   {
     VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
 
+    leaf->socGids->setValue(80);
+    leaf->socPercent->setValue(50);
+    leaf->soh->setValue(60);
+    leaf->pluggedIn->setValue(1);
+
+    if (leaf->powerOutput->value > -4) 
+    {
+      leaf->powerOutput->setValue(leaf->powerOutput->value - 0.5);
+    }
+    else
+    {
+      leaf->powerOutput->setValue(0);
+    }
+
+    /*
     leaf->powered->setValue(1);
     leaf->gear->setValue(4);
 
@@ -107,6 +133,7 @@ void setup()
     leaf->speed->setValue(speed);
     leaf->leftSpeed->setValue(speed);
     leaf->rightSpeed->setValue(speed);
+    */
 
     request->send(200, "text/plain", "Test");
     //WiFi.disconnect();
@@ -118,6 +145,7 @@ void setup()
 void loop() 
 {
   vehicle->readAndProcessBusData();
+  vehicle->updateExtraMetrics();
   
   uint32_t now = millis();
 

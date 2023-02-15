@@ -14,6 +14,7 @@ class VehicleNissanLeaf: public Vehicle
   public:
     VehicleNissanLeaf();
     void processFrame(uint8_t &busId, long unsigned int &frameId, unsigned char *frameData);
+    void updateExtraMetrics();
     void metricUpdated(Metric *metric);
 
     MetricInt* gear;
@@ -23,10 +24,18 @@ class VehicleNissanLeaf: public Vehicle
     MetricInt* soh;
     MetricFloat* powerOutput;
     MetricFloat* socPercent;
+    MetricInt* pluggedIn;
     MetricFloat* speed;
     MetricFloat* leftSpeed;
     MetricFloat* rightSpeed;
+    MetricFloat* batteryTemp;
+    MetricFloat* motorTemp;
+    MetricFloat* inverterTemp;
+    MetricFloat* ambientTemp;
+    MetricInt* fanSpeed;
     MetricInt* range;
+    MetricInt* chargeStatus;
+    MetricInt* remainingChargeTime;
 };
 
 #endif
