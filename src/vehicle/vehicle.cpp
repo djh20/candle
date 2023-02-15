@@ -1,26 +1,26 @@
 #include "vehicle.h"
-#include "Arduino.h"
+#include <Arduino.h>
+#include "../utils/logger.h"
 
 Vehicle::Vehicle() {}
 
 void Vehicle::registerBus(CanBus* bus)
 {
-  Serial.print("Registering bus ");
-  Serial.print(bus->id);
-  Serial.println(":");
+  bool initialized = bus->init();
 
-  bus->init();
+  if (!initialized) {
+    Logger.log(Error, "vehicle", "Failed to register bus %u", bus->id);
+    return;
+  }
+
   busses[totalBusses++] = bus;
-
-  Serial.println();
+  Logger.log(Info, "vehicle", "Registered bus %u", bus->id);
 }
 
 void Vehicle::registerMetric(Metric* metric) 
 {
-  Serial.print("Registering metric: ");
-  Serial.println(metric->id);
-
   metrics[totalMetrics++] = metric;
+  Logger.log(Info, "vehicle", "Registered metric: %s", metric->id);
 }
 
 void Vehicle::readAndProcessBusData()

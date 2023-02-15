@@ -4,10 +4,12 @@
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
+#include "utils/logger.h"
 #include "config.h"
 
-#define JSON_DOC_SIZE 1024
-#define SEND_INTERVAL 50
+#define JSON_DOC_SIZE 1024U
+#define WIFI_SCAN_INTERVAL 10000U
+#define SEND_INTERVAL 50U
 
 IPAddress localIP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
@@ -21,24 +23,13 @@ Vehicle* vehicle;
 DynamicJsonDocument doc(JSON_DOC_SIZE);
 char jsonBuffer[JSON_DOC_SIZE];
 
-uint32_t lastConnectMillis = 0;
+uint32_t lastScanMillis = 0;
 uint32_t lastSendMillis = 0;
 uint32_t sendCounter = 0;
 
-void reconnectToWifi()
-{
-  uint32_t now = millis();
+WiFiEventHandler wifiHandle;
 
-  // Only connect again after 10 seconds.
-  if (now - lastConnectMillis < 10000) return;
-
-  Serial.printf("Reconnecting to %s...\n", WIFI_HOME_SSID);
-
-  lastConnectMillis = now;
-  WiFi.reconnect();
-}
-
-void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
              void *arg, uint8_t *data, size_t len) 
 {
   if (type == WS_EVT_CONNECT) 
@@ -58,25 +49,39 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   }
 }
 
+void onStationModeConnected(const WiFiEventStationModeConnected& event)
+{
+  Logger.log(Debug, "wifi", "Connected to %s", event.ssid);
+}
+
 void setup() 
 {
   Serial.begin(9600);
-  delay(200);
+  delay(1000);
+
+  // Print splash art & info
+  Serial.println();
+  Serial.println(
+    "____ ____ _  _ ___  _    ____\n"
+    "|    |__| |\\ | |  \\ |    |___\n"
+    "|___ |  | | \\| |__/ |___ |___"
+  );
+  Serial.println("Version: DEV");
+  Serial.println("Disclaimer: This is a work in progress.");
 
   Serial.println();
 
   vehicle = new VehicleNissanLeaf();
 
   WiFi.mode(WIFI_AP_STA);
+  WiFi.setSleepMode(WIFI_NONE_SLEEP);
   WiFi.setAutoReconnect(false);
-
-  Serial.printf("Connecting to %s...\n", WIFI_HOME_SSID);
-  WiFi.begin(WIFI_HOME_SSID, WIFI_HOME_PASSWORD);
+  wifiHandle = WiFi.onStationModeConnected(onStationModeConnected);
 
   WiFi.softAPConfig(localIP, gateway, subnet);
   WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, 1, 1);
 
-  ws.onEvent(onEvent);
+  ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
   server.on("/api/vehicle/metrics", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -104,19 +109,35 @@ void setup()
     leaf->rightSpeed->setValue(speed);
 
     request->send(200, "text/plain", "Test");
+    //WiFi.disconnect();
   });
+
   server.begin();
 }
 
 void loop() 
 {
-  if (vehicle->idle && !WiFi.isConnected()) reconnectToWifi();
-  
   vehicle->readAndProcessBusData();
   
   uint32_t now = millis();
 
-  if (now - lastSendMillis > SEND_INTERVAL)
+  if (now - lastScanMillis >= WIFI_SCAN_INTERVAL && !WiFi.isConnected() && vehicle->idle)
+  {
+    Logger.log(Debug, "wifi", "Scanning for home network...");
+    WiFi.scanNetworks(true, true, 0U, (uint8_t*) WIFI_HOME_SSID);
+    lastScanMillis = now;
+  }
+
+  int8_t totalNetworks = WiFi.scanComplete();
+  if (totalNetworks >= 0)
+  {
+    Logger.log(Debug, "wifi", "Found %d network(s)", totalNetworks);
+    Logger.log(Debug, "wifi", "Connecting to %s...", WIFI_HOME_SSID);
+    WiFi.begin(WIFI_HOME_SSID, WIFI_HOME_PASSWORD);
+    WiFi.scanDelete();
+  }
+
+  if (now - lastSendMillis >= SEND_INTERVAL)
   {
     doc.clear();
 
