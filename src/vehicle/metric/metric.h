@@ -1,6 +1,7 @@
 #ifndef _METRIC_H_
 #define _METRIC_H_
 
+#include <Arduino.h>
 #include <ArduinoJson.h>
 
 //class Metric;
@@ -13,6 +14,7 @@ class Metric
     Metric(const char* id);
 
     void onUpdate(std::function<void()> handler);
+    virtual void setValueFromString(String str);
     virtual void reset();
     virtual void addToJsonDoc(DynamicJsonDocument &doc);
 
@@ -27,6 +29,7 @@ class MetricInt: public Metric
     MetricInt(const char* id, int32_t defaultValue);
 
     void setValue(int32_t newValue);
+    void setValueFromString(String str);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 
@@ -40,6 +43,7 @@ class MetricFloat: public Metric
     MetricFloat(const char* id, float defaultValue);
 
     void setValue(float newValue);
+    void setValueFromString(String str);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 

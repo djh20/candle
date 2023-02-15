@@ -10,9 +10,9 @@ void Metric::onUpdate(std::function<void()> handler)
   updateHandler = handler;
 }
 
+void Metric::setValueFromString(String str) {}
 void Metric::reset() {}
 void Metric::addToJsonDoc(DynamicJsonDocument &doc) {}
-
 
 MetricInt::MetricInt(const char* id, int32_t defaultValue) : Metric(id) 
 {
@@ -26,6 +26,10 @@ void MetricInt::setValue(int32_t newValue)
   value = newValue;
   lastUpdateMillis = millis();
   if (updateHandler) updateHandler();
+}
+
+void MetricInt::setValueFromString(String str) {
+  setValue(str.toInt());
 }
 
 void MetricInt::reset() { setValue(defaultValue); }
@@ -44,6 +48,10 @@ void MetricFloat::setValue(float newValue)
   value = newValue;
   lastUpdateMillis = millis();
   if (updateHandler) updateHandler();
+}
+
+void MetricFloat::setValueFromString(String str) {
+  setValue(str.toFloat());
 }
 
 void MetricFloat::reset() { setValue(defaultValue); }

@@ -90,6 +90,30 @@ void setup()
   ws.onEvent(onWsEvent);
   server.addHandler(&ws);
 
+  server.on("/api/vehicle/metrics/set", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    if (!request->hasParam("id") || !request->hasParam("value"))
+    {
+      request->send(400);
+      return;
+    }
+
+    AsyncWebParameter *idParam = request->getParam("id");
+    AsyncWebParameter *valueParam = request->getParam("value");
+    
+    for (int i = 0; i < vehicle->totalMetrics; i++)
+    {
+      Metric* metric = vehicle->metrics[i];
+      if (strcmp(metric->id, idParam->value().c_str()) == 0)
+      {
+        metric->setValueFromString(valueParam->value());
+        break;
+      }
+    }
+
+    request->send(200);
+  });
+
   server.on("/api/vehicle/metrics", HTTP_GET, [](AsyncWebServerRequest *request)
   {
     // Reply with all metrics.
@@ -99,11 +123,6 @@ void setup()
     serializeJson(doc, jsonBuffer);
 
     request->send(200, "application/json", jsonBuffer);
-  });
-
-  server.on("/api/vehicle/metrics/set", HTTP_GET, [](AsyncWebServerRequest *request)
-  {
-    //AsyncWebParameter *id = request->getParam("id");
   });
 
   server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
