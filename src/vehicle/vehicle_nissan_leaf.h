@@ -36,6 +36,7 @@ class VehicleNissanLeaf: public Vehicle
     MetricInt* range;
     MetricInt* chargeStatus;
     MetricInt* remainingChargeTime;
+    MetricInt* rangeAtLastCharge;
 };
 
 #endif

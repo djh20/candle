@@ -27,6 +27,7 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle()
   registerMetric(range = new MetricInt("range", 0));
   registerMetric(chargeStatus = new MetricInt("charge_status", 0));
   registerMetric(remainingChargeTime = new MetricInt("remaining_charge_time", 0));
+  registerMetric(rangeAtLastCharge = new MetricInt("range_at_last_charge", 0));
   
   registerGps(
     new Gps(
@@ -129,10 +130,8 @@ void VehicleNissanLeaf::updateExtraMetrics()
   // Remaining Charge Time
   if (now - remainingChargeTime->lastUpdateMillis >= 5000)
   {
-    //Logger.log(Debug, "vehicle", "Updating remaining charge time...");
     if (chargeStatus->value == 1 && powerOutput->value < 0) 
     {
-      //Logger.log(Debug, "vehicle", "Car is charging");
       double batteryCapacity = NEW_BATTERY_CAPACITY * (soh->value/100.0);
       double percentUntilFull = MAX_SOC_PERCENT - socPercent->value;
 
@@ -143,7 +142,6 @@ void VehicleNissanLeaf::updateExtraMetrics()
     }
     else
     {
-      //Logger.log(Debug, "vehicle", "Car is not charging");
       remainingChargeTime->setValue(0);
     }
   }
@@ -166,7 +164,15 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     if (energyKwh < 0) energyKwh = 0;
     range->setValue((int32_t)(energyKwh * KM_PER_KWH));
   }
-  else if (metric == pluggedIn || metric == powerOutput)
+  else if (metric == pluggedIn)
+  {
+    if (pluggedIn->value)
+    {
+      if (gps) gps->resetDistance();
+    }
+  }
+  
+  if (metric == pluggedIn || metric == powerOutput)
   {
     // Charge Status
     if (pluggedIn->value)
@@ -183,6 +189,18 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     else
     {
       chargeStatus->setValue(0);
+    }
+  }
+
+  if (metric == pluggedIn || metric == gear)
+  {
+    if (pluggedIn->value)
+    {
+      rangeAtLastCharge->reset();
+    }
+    else if (gear->value > 1 && rangeAtLastCharge->value == 0)
+    {
+      rangeAtLastCharge->setValue(range->value);
     }
   }
 }
