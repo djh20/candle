@@ -2,6 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <AsyncElegantOTA.h>
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
@@ -158,6 +159,7 @@ void setup()
     //WiFi.disconnect();
   });
 
+  AsyncElegantOTA.begin(&server);
   server.begin();
 }
 
