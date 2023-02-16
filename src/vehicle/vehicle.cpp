@@ -28,6 +28,25 @@ void Vehicle::registerMetric(Metric *metric)
   Logger.log(Info, "vehicle", "Registered metric: %s", metric->id);
 }
 
+void Vehicle::registerGps(Gps *gps)
+{
+  registerMetric(gps->latMetric);
+  registerMetric(gps->lngMetric);
+  registerMetric(gps->lockMetric);
+  registerMetric(gps->distanceMetric);
+  this->gps = gps;
+
+  Logger.log(Info, "vehicle", "Registered GPS");
+}
+
+void Vehicle::update()
+{
+  readAndProcessBusData();
+  updateExtraMetrics();
+
+  if (gps) gps->update(moving);
+}
+
 void Vehicle::readAndProcessBusData()
 {
   for (int i = 0; i < totalBusses; i++) 

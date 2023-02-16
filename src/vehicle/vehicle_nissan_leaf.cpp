@@ -27,6 +27,17 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle()
   registerMetric(range = new MetricInt("range", 0));
   registerMetric(chargeStatus = new MetricInt("charge_status", 0));
   registerMetric(remainingChargeTime = new MetricInt("remaining_charge_time", 0));
+
+  registerGps(
+    new Gps(
+      D3,
+      D4,
+      new MetricFloat("gps_lat", 0),
+      new MetricFloat("gps_lng", 0),
+      new MetricInt("gps_lock", 0),
+      new MetricFloat("gps_distance", 0)
+    )
+  );
 }
 
 void VehicleNissanLeaf::processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData)
@@ -38,8 +49,6 @@ void VehicleNissanLeaf::processFrame(uint8_t &busId, long unsigned int &frameId,
       gear->setValue((frameData[0] & 0xF0) >> 4);
       powered->setValue((frameData[1] & 0x40) >> 6);
       eco->setValue((frameData[1] & 0x10) >> 4);
-
-      idle = !powered->value;
     }
     else if (frameId == 0x5bc) // Lithium Battery Controller (500ms)
     {
@@ -143,7 +152,15 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric) 
 {
-  if (metric == socGids)
+  if (metric == powered)
+  {
+    active = powered->value;
+  }
+  else if (metric == speed)
+  {
+    moving = (speed->value > 0);
+  }
+  else if (metric == socGids)
   {
     // Range
     double energyKwh = ((socGids->value*WH_PER_GID)/1000.0)-1.15;

@@ -165,12 +165,11 @@ void setup()
 
 void loop() 
 {
-  vehicle->readAndProcessBusData();
-  vehicle->updateExtraMetrics();
+  vehicle->update();
   
   uint32_t now = millis();
 
-  if (now - lastScanMillis >= WIFI_SCAN_INTERVAL && !WiFi.isConnected() && vehicle->idle)
+  if (now - lastScanMillis >= WIFI_SCAN_INTERVAL && !WiFi.isConnected() && !vehicle->active)
   {
     Logger.log(Debug, "wifi", "Scanning for home network...");
     WiFi.scanNetworks(true, true, 0U, (uint8_t*) WIFI_HOME_SSID);
