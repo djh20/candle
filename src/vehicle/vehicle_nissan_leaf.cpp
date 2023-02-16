@@ -27,10 +27,9 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle()
   registerMetric(range = new MetricInt("range", 0));
   registerMetric(chargeStatus = new MetricInt("charge_status", 0));
   registerMetric(remainingChargeTime = new MetricInt("remaining_charge_time", 0));
-
+  
   registerGps(
     new Gps(
-      D3,
       D4,
       new MetricFloat("gps_lat", 0),
       new MetricFloat("gps_lng", 0),

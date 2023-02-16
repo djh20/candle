@@ -8,7 +8,7 @@
 class Gps
 {
   public:
-    Gps(uint8_t txPin, uint8_t rxPin, MetricFloat *latMetric, MetricFloat *lngMetric, 
+    Gps(uint8_t rxPin, MetricFloat *latMetric, MetricFloat *lngMetric, 
         MetricInt *lockMetric, MetricFloat *distanceMetric);
 
     void update(bool moving);

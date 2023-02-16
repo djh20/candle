@@ -1,12 +1,12 @@
 #include "gps.h"
 #include "../../utils/logger.h"
 
-Gps::Gps(uint8_t rxPin, uint8_t txPin, MetricFloat *latMetric, MetricFloat *lngMetric,
+Gps::Gps(uint8_t rxPin, MetricFloat *latMetric, MetricFloat *lngMetric,
         MetricInt *lockMetric, MetricFloat *distanceMetric)
 {
   tinyGps = new TinyGPSPlus();
   
-  serial = new SoftwareSerial(rxPin, txPin);
+  serial = new SoftwareSerial(rxPin);
   serial->begin(9600);
 
   this->latMetric = latMetric;
