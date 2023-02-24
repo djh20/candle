@@ -28,6 +28,8 @@ uint32_t lastScanMillis = 0;
 uint32_t lastSendMillis = 0;
 uint32_t sendCounter = 0;
 
+bool testing = false;
+
 WiFiEventHandler wifiHandle;
 
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
@@ -64,7 +66,7 @@ void onStationModeConnected(const WiFiEventStationModeConnected& event)
 void setup() 
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(100);
 
   // Print splash art & info
   Serial.println();
@@ -128,39 +130,16 @@ void setup()
 
   server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
   {
-    VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
+    testing = !testing;
 
-    leaf->socGids->setValue(80);
-    leaf->socPercent->setValue(50);
-    leaf->soh->setValue(60);
-    leaf->pluggedIn->setValue(1);
-
-    if (leaf->powerOutput->value > -4) 
-    {
-      leaf->powerOutput->setValue(leaf->powerOutput->value - 0.5);
-    }
-    else
-    {
-      leaf->powerOutput->setValue(0);
-    }
-
-    /*
-    leaf->powered->setValue(1);
-    leaf->gear->setValue(4);
-
-    float speed = leaf->speed->value + 1;
-
-    leaf->speed->setValue(speed);
-    leaf->leftSpeed->setValue(speed);
-    leaf->rightSpeed->setValue(speed);
-    */
-
-    request->send(200, "text/plain", "Test");
-    //WiFi.disconnect();
+    request->send(200, "text/plain", testing ? "Test Started" : "Test Stopped");
   });
 
   AsyncElegantOTA.begin(&server);
   server.begin();
+  
+  // Wait for everything to initialize.
+  delay(100);
 }
 
 void loop() 
@@ -189,10 +168,33 @@ void loop()
   {
     doc.clear();
 
+    if (testing)
+    {
+      VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
+
+      leaf->powered->setValue(1);
+      leaf->gear->setValue(4);
+      
+      float speed = leaf->speed->value + 1;
+      float power = leaf->powerOutput->value + 1;
+      int32_t range = leaf->range->value + 1;
+
+      if (speed > 100) speed = 0;
+      if (power > 80) power = -20;
+      if (range > 80) range = 0;
+
+      leaf->speed->setValue(speed);
+      leaf->leftSpeed->setValue(speed);
+      leaf->rightSpeed->setValue(speed);
+      leaf->powerOutput->setValue(power);
+      leaf->range->setValue(range);
+    }
+
     if (++sendCounter >= 50)
     {
       vehicle->metricsToJson(doc);
       sendCounter = 0;
+      Logger.log(Debug, "ram", "Free Heap: %u", ESP.getFreeHeap());
     } 
     else 
     {
