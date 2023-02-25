@@ -194,7 +194,7 @@ void loop()
     {
       vehicle->metricsToJson(doc);
       sendCounter = 0;
-      Logger.log(Debug, "ram", "Free Heap: %u", ESP.getFreeHeap());
+      //Logger.log(Debug, "ram", "Free Heap: %u", ESP.getFreeHeap());
     } 
     else 
     {
