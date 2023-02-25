@@ -164,7 +164,7 @@ void loop()
     WiFi.scanDelete();
   }
 
-  if (now - lastSendMillis >= SEND_INTERVAL)
+  if (now - lastSendMillis >= SEND_INTERVAL && ws.count() > 0)
   {
     doc.clear();
 
