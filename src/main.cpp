@@ -24,7 +24,7 @@ Vehicle* vehicle;
 DynamicJsonDocument doc(JSON_DOC_SIZE);
 char jsonBuffer[JSON_DOC_SIZE];
 
-uint32_t lastScanMillis = 0;
+uint32_t nextScanMillis = 0;
 uint32_t lastSendMillis = 0;
 uint32_t sendCounter = 0;
 
@@ -148,11 +148,11 @@ void loop()
   
   uint32_t now = millis();
 
-  if (now - lastScanMillis >= WIFI_SCAN_INTERVAL && !WiFi.isConnected() && !vehicle->active)
+  if (now >= nextScanMillis && !WiFi.isConnected() && !vehicle->active)
   {
     Logger.log(Debug, "wifi", "Scanning for home network...");
     WiFi.scanNetworks(true, true, 0U, (uint8_t*) WIFI_HOME_SSID);
-    lastScanMillis = now;
+    nextScanMillis = now + WIFI_SCAN_INTERVAL;
   }
 
   int8_t totalNetworks = WiFi.scanComplete();
