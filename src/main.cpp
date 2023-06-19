@@ -2,15 +2,16 @@
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+//#include <AsyncElegantOTA.h>
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
 #include "config.h"
 
-#define JSON_DOC_SIZE 1024U
+#define JSON_DOC_SIZE 512U
 #define WIFI_SCAN_INTERVAL 10000U
 #define SEND_INTERVAL 50U
+#define LOG_INTERVAL 1000U
 
 IPAddress localIP(192, 168, 1, 1);
 IPAddress gateway(192, 168, 1, 1);
@@ -26,6 +27,7 @@ char jsonBuffer[JSON_DOC_SIZE];
 
 uint32_t nextScanMillis = 0;
 uint32_t lastSendMillis = 0;
+uint32_t nextLogMillis = 0;
 uint32_t sendCounter = 0;
 
 bool testing = false;
@@ -81,9 +83,11 @@ void setup()
   Serial.println();
 
   vehicle = new VehicleNissanLeaf();
-
+  
+  WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
   WiFi.setSleepMode(WIFI_NONE_SLEEP);
+  WiFi.setPhyMode(WIFI_PHY_MODE_11G);
   WiFi.setAutoReconnect(false);
   wifiHandle = WiFi.onStationModeConnected(onStationModeConnected);
 
@@ -128,6 +132,26 @@ void setup()
     request->send(200, "application/json", jsonBuffer);
   });
 
+  server.on("/api/wifi", HTTP_GET, [](AsyncWebServerRequest *request)
+  {
+    memset(jsonBuffer, 0, JSON_DOC_SIZE);
+    doc.clear();
+    
+    doc["connected"] = WiFi.isConnected();
+    doc["status"] = WiFi.status();
+    doc["persistent"] = WiFi.getPersistent();
+    doc["rssi"] = WiFi.RSSI();
+    doc["ssid"] = WiFi.SSID();
+    doc["ip"] = WiFi.localIP().toString();
+    doc["ipSet"] = WiFi.localIP().isSet();
+    doc["sleep"] = WiFi.getSleep();
+    doc["sockets"] = ws.count();
+
+    serializeJson(doc, jsonBuffer);
+
+    request->send(200, "text/plain", jsonBuffer);
+  });
+
   server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
   {
     testing = !testing;
@@ -135,7 +159,7 @@ void setup()
     request->send(200, "text/plain", testing ? "Test Started" : "Test Stopped");
   });
 
-  AsyncElegantOTA.begin(&server);
+  //AsyncElegantOTA.begin(&server);
   server.begin();
   
   // Wait for everything to initialize.
@@ -148,6 +172,12 @@ void loop()
   
   uint32_t now = millis();
 
+  if (WiFi.isConnected() && !WiFi.localIP().isSet())
+  {
+    Logger.log(Debug, "wifi", "Device does not have IP, disconnecting...");
+    WiFi.disconnect();
+  }
+
   if (now >= nextScanMillis && !WiFi.isConnected() && !vehicle->active)
   {
     Logger.log(Debug, "wifi", "Scanning for home network...");
@@ -156,7 +186,7 @@ void loop()
   }
 
   int8_t totalNetworks = WiFi.scanComplete();
-  if (totalNetworks >= 0)
+  if (totalNetworks > 0)
   {
     Logger.log(Debug, "wifi", "Found %d network(s)", totalNetworks);
     Logger.log(Debug, "wifi", "Connecting to %s...", WIFI_HOME_SSID);
@@ -209,6 +239,14 @@ void loop()
     }
 
     lastSendMillis = now;
+  }
+
+  if (now >= nextLogMillis)
+  {
+    Logger.log(Debug, "wifi", "Free Heap: %d", ESP.getFreeHeap());
+    Logger.log(Debug, "wifi", "Free Stack: %d", ESP.getFreeContStack());
+
+    nextLogMillis = now + LOG_INTERVAL;
   }
 
   ws.cleanupClients();
