@@ -6,21 +6,22 @@ Vehicle::Vehicle() {}
 
 void Vehicle::registerBus(CanBus *bus)
 {
+  uint8_t id = totalBusses;
   bool initialized = bus->init();
 
   if (!initialized) {
-    Logger.log(Error, "vehicle", "Failed to register bus %u", bus->id);
+    Logger.log(Error, "vehicle", "Failed to register bus %u", id);
     return;
   }
 
   busses[totalBusses++] = bus;
-  Logger.log(Info, "vehicle", "Registered bus %u", bus->id);
+  Logger.log(Info, "vehicle", "Registered bus %u", id);
 }
 
 void Vehicle::registerMetric(Metric *metric) 
 {
   metrics[totalMetrics++] = metric;
-
+  
   metric->onUpdate([this, metric]() {
     metricUpdated(metric);
   });
@@ -39,21 +40,45 @@ void Vehicle::registerGps(Gps *gps)
   Logger.log(Info, "vehicle", "Registered GPS");
 }
 
+void Vehicle::registerTask(PollTask *task)
+{
+  uint8_t id = totalTasks;
+  tasks[totalTasks++] = task;
+  Logger.log(Info, "vehicle", "Registered task %u", id);
+}
+
 void Vehicle::update()
 {
+  handleTasks();
   readAndProcessBusData();
   updateExtraMetrics();
 
-  if (gps) gps->update(moving);
+  if (gps != NULL) gps->update(moving);
 }
 
 void Vehicle::readAndProcessBusData()
 {
   for (int i = 0; i < totalBusses; i++) 
   {
-    CanBus* bus = busses[i];
-    bool gotFrame = bus->readFrame();
-    if (gotFrame) processFrame(bus->id, bus->frameId, bus->frameData);
+    CanBus *bus = busses[i];
+    for (uint8_t i = 0; i < 10; i++)
+    {
+      bool gotFrame = bus->readFrame();
+      if (gotFrame) 
+      {
+        processFrame(bus, bus->frameId, bus->frameData);
+        if (currentTask != NULL && currentTask->responseId == bus->frameId && currentTask->bus == bus)
+        {
+          bool taskCompleted = currentTask->processFrame(bus->frameData);
+          if (taskCompleted)
+          {
+            Logger.log(Debug, "vehicle", "Task %u completed", currentTaskIndex);
+            processPollResponse(bus, currentTask, currentTask->buffer);
+          }
+        }
+      }
+      else break;
+    }
   }
 }
 
@@ -70,6 +95,41 @@ void Vehicle::getUpdatedMetrics(DynamicJsonDocument &updatedMetrics, uint32_t si
   }
 }
 
+void Vehicle::handleTasks()
+{
+  uint32_t now = millis();
+
+  if (currentTask != NULL)
+  {
+    if (!currentTask->running) {
+      currentTask = NULL;
+    }
+    else if (now - currentTask->lastRunMillis >= currentTask->timeout)
+    {
+      Logger.log(Debug, "vehicle", "Cancelling task %u", currentTaskIndex);
+      currentTask->cancel();
+      currentTask = NULL;
+    }
+    else return;
+  }
+
+  if (!active) return;
+
+  for (uint8_t offset = 0; offset < totalTasks; offset++)
+  {
+    uint8_t i = (currentTaskIndex + offset) % totalTasks;
+
+    PollTask* task = tasks[i];
+    if (now >= task->nextRunMillis) {
+      currentTask = task;
+      currentTaskIndex = i;
+      Logger.log(Debug, "vehicle", "Running task %u", i);
+      task->run();
+      return;
+    }
+  }
+}
+
 void Vehicle::metricsToJson(DynamicJsonDocument &doc)
 {
   for (int i = 0; i < totalMetrics; i++)
@@ -79,6 +139,7 @@ void Vehicle::metricsToJson(DynamicJsonDocument &doc)
   }
 }
 
-void Vehicle::processFrame(uint8_t &busId, long unsigned int &frameId, byte *frameData) {}
+void Vehicle::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData) {}
+void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}

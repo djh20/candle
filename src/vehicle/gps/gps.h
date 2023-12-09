@@ -2,7 +2,6 @@
 
 #include <Arduino.h>
 #include <TinyGPS++.h>
-#include <SoftwareSerial.h>
 #include "../metric/metric.h"
 
 class Gps
@@ -21,7 +20,7 @@ class Gps
 
   private:
     TinyGPSPlus *tinyGps;
-    SoftwareSerial* serial;
+    HardwareSerial* serial;
 
     double lastLat;
     double lastLng;

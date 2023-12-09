@@ -6,7 +6,7 @@ Gps::Gps(uint8_t rxPin, MetricFloat *latMetric, MetricFloat *lngMetric,
 {
   tinyGps = new TinyGPSPlus();
   
-  serial = new SoftwareSerial(rxPin);
+  serial = &Serial1;
   serial->begin(9600);
 
   this->latMetric = latMetric;

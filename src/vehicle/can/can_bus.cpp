@@ -1,10 +1,9 @@
 #include "can_bus.h"
 #include <Arduino.h>
 
-CanBus::CanBus(uint8_t id, uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
+CanBus::CanBus(uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
                 uint8_t speedset, uint8_t clockset)
 {
-  this->id = id;
   this->csPin = csPin;
   this->intPin = intPin;
   this->idmodeset = idmodeset;
@@ -26,4 +25,10 @@ bool CanBus::readFrame()
 
   mcp->readMsgBuf(&frameId, &frameLen, frameData);
   return true;
+}
+
+void CanBus::sendFlowControl(uint32_t frameId)
+{
+  uint8_t data[8] = {0x30, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00};
+  mcp->sendMsgBuf(frameId, 8, data);
 }

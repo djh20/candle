@@ -1,8 +1,8 @@
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <AsyncElegantOTA.h>
+#include <ElegantOTA.h>
 #include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
@@ -10,14 +10,13 @@
 
 #define JSON_DOC_SIZE 1024U
 #define WIFI_SCAN_INTERVAL 10000U
-#define SEND_INTERVAL 50U
+#define SEND_INTERVAL 60U
 
 IPAddress localIP(192, 168, 1, 1);
-IPAddress gateway(192, 168, 1, 1);
 IPAddress subnet(255, 255, 255, 0); 
  
 AsyncWebServer server(80);
-AsyncWebSocket ws("/ws");
+AsyncEventSource events("/events");
 
 Vehicle* vehicle;
 
@@ -30,43 +29,26 @@ uint32_t sendCounter = 0;
 
 bool testing = false;
 
-WiFiEventHandler wifiHandle;
-
-void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
-             void *arg, uint8_t *data, size_t len) 
+void onConnect(AsyncEventSourceClient *client) 
 {
-  if (type == WS_EVT_CONNECT) 
-  {
-    Logger.log(
-      Debug, 
-      "ws", 
-      "WebSocket client #%u connected from %s", 
-      client->id(), 
-      client->remoteIP().toString().c_str()
-    );
+  Logger.log(Debug, "sse", "New client connected");
+  memset(jsonBuffer, 0, JSON_DOC_SIZE);
+  doc.clear();
+  vehicle->metricsToJson(doc);
+  serializeJson(doc, jsonBuffer);
 
-    memset(jsonBuffer, 0, JSON_DOC_SIZE);
-    doc.clear();
-    vehicle->metricsToJson(doc);
-    serializeJson(doc, jsonBuffer);
-
-    client->text(jsonBuffer);
-  }
-  else if (type == WS_EVT_DISCONNECT)
-  {
-    Logger.log(Debug, "ws", "WebSocket client #%u disconnected", client->id());
-  }
+  client->send(jsonBuffer, NULL, millis());
 }
 
-void onStationModeConnected(const WiFiEventStationModeConnected& event)
+void onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
 {
-  Logger.log(Debug, "wifi", "Connected to %s", event.ssid);
+  Logger.log(Debug, "wifi", "Connected to %s", info.wifi_sta_connected.ssid);
 }
 
 void setup() 
 {
   Serial.begin(115200);
-  delay(100);
+  delay(500);
 
   // Print splash art & info
   Serial.println();
@@ -84,16 +66,15 @@ void setup()
   
   WiFi.persistent(false);
   WiFi.mode(WIFI_AP_STA);
-  WiFi.setSleepMode(WIFI_NONE_SLEEP);
-  WiFi.setPhyMode(WIFI_PHY_MODE_11G);
+  WiFi.setSleep(false);
   WiFi.setAutoReconnect(false);
-  wifiHandle = WiFi.onStationModeConnected(onStationModeConnected);
+  WiFi.onEvent(onStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
 
-  WiFi.softAPConfig(localIP, gateway, subnet);
+  WiFi.softAPConfig(localIP, localIP, subnet);
   WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, 1, 1);
 
-  ws.onEvent(onWsEvent);
-  server.addHandler(&ws);
+  events.onConnect(onConnect);
+  server.addHandler(&events);
 
   server.on("/api/vehicle/metrics/set", HTTP_GET, [](AsyncWebServerRequest *request)
   {
@@ -130,14 +111,14 @@ void setup()
     request->send(200, "application/json", jsonBuffer);
   });
 
-  server.on("/api/test", HTTP_GET, [](AsyncWebServerRequest *request)
+  server.on("/api/test/stress", HTTP_GET, [](AsyncWebServerRequest *request)
   {
     testing = !testing;
 
-    request->send(200, "text/plain", testing ? "Test Started" : "Test Stopped");
+    request->send(200, "text/plain", testing ? "Stress Test Started" : "Stress Test Stopped");
   });
 
-  AsyncElegantOTA.begin(&server);
+  ElegantOTA.begin(&server);
   server.begin();
   
   // Wait for everything to initialize.
@@ -149,17 +130,12 @@ void loop()
   vehicle->update();
   
   uint32_t now = millis();
-
-  if (WiFi.isConnected() && !WiFi.localIP().isSet())
-  {
-    Logger.log(Debug, "wifi", "Device does not have IP, disconnecting...");
-    WiFi.disconnect();
-  }
-
+  
+  /* TEMPORARILY REMOVED TO FIX QUEUE ERROR
   if (now >= nextScanMillis && !WiFi.isConnected() && !vehicle->active)
   {
     Logger.log(Debug, "wifi", "Scanning for home network...");
-    WiFi.scanNetworks(true, true, 0U, (uint8_t*) WIFI_HOME_SSID);
+    WiFi.scanNetworks(true, true, true, 300U, 0U, WIFI_HOME_SSID);
     nextScanMillis = now + WIFI_SCAN_INTERVAL;
   }
 
@@ -171,8 +147,9 @@ void loop()
     WiFi.begin(WIFI_HOME_SSID, WIFI_HOME_PASSWORD);
     WiFi.scanDelete();
   }
+  */
 
-  if (now - lastSendMillis >= SEND_INTERVAL && ws.count() > 0)
+  if (now - lastSendMillis >= SEND_INTERVAL && events.count() > 0)
   {
     doc.clear();
 
@@ -181,10 +158,10 @@ void loop()
       VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
 
       leaf->powered->setValue(1);
-      leaf->gear->setValue(4);
+      leaf->gear->setValue(3);
       
       float speed = leaf->speed->value + 1;
-      float power = leaf->powerOutput->value + 1;
+      float power = leaf->batteryPower->value + 1;
       int32_t range = leaf->range->value + 1;
 
       if (speed > 100) speed = 0;
@@ -192,9 +169,7 @@ void loop()
       if (range > 80) range = 0;
 
       leaf->speed->setValue(speed);
-      leaf->leftSpeed->setValue(speed);
-      leaf->rightSpeed->setValue(speed);
-      leaf->powerOutput->setValue(power);
+      leaf->batteryPower->setValue(power);
       leaf->range->setValue(range);
     }
 
@@ -213,11 +188,11 @@ void loop()
     {
       memset(jsonBuffer, 0, JSON_DOC_SIZE);
       serializeJson(doc, jsonBuffer);
-      ws.textAll(jsonBuffer);
+      events.send(jsonBuffer, NULL, millis());
     }
 
     lastSendMillis = now;
   }
 
-  ws.cleanupClients();
+  //ws.cleanupClients();
 }

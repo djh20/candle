@@ -1,5 +1,4 @@
-#ifndef _METRIC_H_
-#define _METRIC_H_
+#pragma once
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -26,29 +25,31 @@ class Metric
 class MetricInt: public Metric 
 {
   public:
-    MetricInt(const char* id, int32_t defaultValue);
+    MetricInt(const char* id, int32_t defaultValue, int32_t minValue, int32_t maxValue);
 
-    void setValue(int32_t newValue);
+    void setValue(int32_t newValue, bool force = false);
     void setValueFromString(String str);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 
     int32_t value;
     int32_t defaultValue;
+    int32_t minValue;
+    int32_t maxValue;
 };
 
 class MetricFloat: public Metric 
 {
   public:
-    MetricFloat(const char* id, float defaultValue);
+    MetricFloat(const char* id, float defaultValue, float minValue, float maxValue);
 
-    void setValue(float newValue);
+    void setValue(float newValue, bool force = false);
     void setValueFromString(String str);
     void reset();
     void addToJsonDoc(DynamicJsonDocument &doc);
 
     float value;
     float defaultValue;
+    float minValue;
+    float maxValue;
 };
-
-#endif

@@ -14,45 +14,53 @@ void Metric::setValueFromString(String str) {}
 void Metric::reset() {}
 void Metric::addToJsonDoc(DynamicJsonDocument &doc) {}
 
-MetricInt::MetricInt(const char* id, int32_t defaultValue) : Metric(id) 
+MetricInt::MetricInt(const char* id, int32_t defaultValue, int32_t minValue, int32_t maxValue) : Metric(id) 
 {
   this->defaultValue = defaultValue;
+  this->minValue = minValue;
+  this->maxValue = maxValue;
   this->value = defaultValue;
 }
 
-void MetricInt::setValue(int32_t newValue)
+void MetricInt::setValue(int32_t newValue, bool force)
 {
   if (newValue == value) return;
+  if (!force && (newValue < minValue || newValue > maxValue)) return;
+
   value = newValue;
   lastUpdateMillis = millis();
   if (updateHandler) updateHandler();
 }
 
 void MetricInt::setValueFromString(String str) {
-  setValue(str.toInt());
+  setValue(str.toInt(), true);
 }
 
-void MetricInt::reset() { setValue(defaultValue); }
+void MetricInt::reset() { setValue(defaultValue, true); }
 void MetricInt::addToJsonDoc(DynamicJsonDocument &doc) { doc[id] = value; }
 
 
-MetricFloat::MetricFloat(const char* id, float defaultValue) : Metric(id) 
+MetricFloat::MetricFloat(const char* id, float defaultValue, float minValue, float maxValue) : Metric(id) 
 {
   this->defaultValue = defaultValue;
+  this->minValue = minValue;
+  this->maxValue = maxValue;
   this->value = defaultValue;
 }
 
-void MetricFloat::setValue(float newValue)
+void MetricFloat::setValue(float newValue, bool force)
 {
   if (newValue == value) return;
+  if (!force && (newValue < minValue || newValue > maxValue)) return;
+
   value = newValue;
   lastUpdateMillis = millis();
   if (updateHandler) updateHandler();
 }
 
 void MetricFloat::setValueFromString(String str) {
-  setValue(str.toFloat());
+  setValue(str.toFloat(), true);
 }
 
-void MetricFloat::reset() { setValue(defaultValue); }
+void MetricFloat::reset() { setValue(defaultValue, true); }
 void MetricFloat::addToJsonDoc(DynamicJsonDocument &doc) { doc[id] = value; }
