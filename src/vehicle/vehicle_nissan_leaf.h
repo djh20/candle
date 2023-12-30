@@ -11,6 +11,7 @@ class VehicleNissanLeaf: public Vehicle
 {
   public:
     VehicleNissanLeaf();
+    void registerAll();
     void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
     void processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]);
     void updateExtraMetrics();
@@ -21,8 +22,7 @@ class VehicleNissanLeaf: public Vehicle
     MetricInt* gear;
     MetricInt* powered;
     //MetricInt* eco;
-    MetricFloat* socPercent;
-    MetricInt* socGids;
+    MetricFloat* soc;
     MetricInt* soh;
     MetricFloat* batteryVoltage;
     MetricFloat* batteryCurrent;

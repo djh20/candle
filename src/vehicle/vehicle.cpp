@@ -4,6 +4,16 @@
 
 Vehicle::Vehicle() {}
 
+void Vehicle::init(BLEServer *bleServer)
+{
+  this->bleServer = bleServer;
+  bleService = bleServer->createService(BLEUUID(METRICS_SERVICE_UUID), 128U, 0);
+
+  registerAll();
+
+  bleService->start();
+}
+
 void Vehicle::registerBus(CanBus *bus)
 {
   uint8_t id = totalBusses;
@@ -21,23 +31,14 @@ void Vehicle::registerBus(CanBus *bus)
 void Vehicle::registerMetric(Metric *metric) 
 {
   metrics[totalMetrics++] = metric;
+
+  bleService->addCharacteristic(metric->bleCharacteristic);
   
   metric->onUpdate([this, metric]() {
     metricUpdated(metric);
   });
 
-  Logger.log(Info, "vehicle", "Registered metric: %s", metric->id);
-}
-
-void Vehicle::registerGps(Gps *gps)
-{
-  registerMetric(gps->latMetric);
-  registerMetric(gps->lngMetric);
-  registerMetric(gps->lockMetric);
-  registerMetric(gps->distanceMetric);
-  this->gps = gps;
-
-  Logger.log(Info, "vehicle", "Registered GPS");
+  Logger.log(Info, "vehicle", "Registered metric %04X", metric->id);
 }
 
 void Vehicle::registerTask(PollTask *task)
@@ -52,8 +53,6 @@ void Vehicle::update()
   handleTasks();
   readAndProcessBusData();
   updateExtraMetrics();
-
-  if (gps != NULL) gps->update(moving);
 }
 
 void Vehicle::readAndProcessBusData()
@@ -82,7 +81,7 @@ void Vehicle::readAndProcessBusData()
   }
 }
 
-void Vehicle::getUpdatedMetrics(DynamicJsonDocument &updatedMetrics, uint32_t sinceMillis)
+void Vehicle::sendUpdatedMetrics(uint32_t sinceMillis)
 {
   for (int i = 0; i < totalMetrics; i++)
   {
@@ -90,7 +89,8 @@ void Vehicle::getUpdatedMetrics(DynamicJsonDocument &updatedMetrics, uint32_t si
     bool updated = (metric->lastUpdateMillis >= sinceMillis); 
     if (updated) 
     {
-      metric->addToJsonDoc(updatedMetrics);
+      //Logger.log(Debug, "vehicle", "Sending metric %04X notify event", metric->id);
+      metric->bleCharacteristic->notify();
     }
   }
 }
@@ -130,15 +130,7 @@ void Vehicle::handleTasks()
   }
 }
 
-void Vehicle::metricsToJson(DynamicJsonDocument &doc)
-{
-  for (int i = 0; i < totalMetrics; i++)
-  {
-    Metric* metric = metrics[i];
-    metric->addToJsonDoc(doc);
-  }
-}
-
+void Vehicle::registerAll() {}
 void Vehicle::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData) {}
 void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {}
 void Vehicle::updateExtraMetrics() {}

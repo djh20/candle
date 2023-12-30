@@ -4,31 +4,32 @@
 #include "can/can_bus.h"
 #include "../utils/logger.h"
 
-VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() 
-{ 
+VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() {}
+
+void VehicleNissanLeaf::registerAll()
+{
   registerBus(mainBus = new CanBus(GPIO_NUM_2, GPIO_NUM_4, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
 
-  registerMetric(gear = new MetricInt("gear", 0, 0, 3));
-  registerMetric(powered = new MetricInt("powered", 0, 0, 1));
-  registerMetric(socGids = new MetricInt("soc_gids", 0, 0, 1000));
-  registerMetric(soh = new MetricInt("soh", 0, 0, 100));
-  registerMetric(batteryVoltage = new MetricFloat("battery_voltage", 0, 100, 500));
-  registerMetric(batteryCurrent = new MetricFloat("battery_current", 0, -300, 300));
-  registerMetric(batteryPower = new MetricFloat("battery_power", 0, -70, 100));
-  registerMetric(batteryCapacity = new MetricFloat("battery_capacity", 0, 0, 70));
-  registerMetric(socPercent = new MetricFloat("soc_percent", 0, 0, 100));
-  registerMetric(speed = new MetricFloat("speed", 0, 0, 200)); 
-  registerMetric(batteryTemp = new MetricFloat("battery_temp", 0, -10, 100));
-  registerMetric(ambientTemp = new MetricFloat("ambient_temp", 0, -10, 100));
-  registerMetric(fanSpeed = new MetricInt("fan_speed", 0, 0, 10));
-  registerMetric(range = new MetricInt("range", 0, 0, 1000));
-  registerMetric(chargeStatus = new MetricInt("charge_status", 0, 0, 2));
-  registerMetric(remainingChargeTime = new MetricInt("remaining_charge_time", 0, 0, 999999));
-  registerMetric(rangeAtLastCharge = new MetricInt("range_at_last_charge", 0, 0, 1000));
-  registerMetric(turnSignal = new MetricInt("turn_signal", 0, 0, 3));
-  registerMetric(quickCharges = new MetricInt("quick_charges", 0, 0, 999999));
-  registerMetric(slowCharges = new MetricInt("slow_charges", 0, 0, 999999));
-  registerMetric(parkingBrake = new MetricInt("parking_brake", 0, 0, 1));
+  registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None, 0, 3));
+  registerMetric(powered = new MetricInt(METRIC_IGNITION, Unit::None, 0, 1));
+  registerMetric(soh = new MetricInt(METRIC_SOH, Unit::Percent, 0, 100));
+  registerMetric(batteryVoltage = new MetricFloat(METRIC_HV_BATT_VOLTAGE, Unit::Volts, Precision::Low, 100, 500));
+  registerMetric(batteryCurrent = new MetricFloat(METRIC_HV_BATT_CURRENT, Unit::Amps, Precision::Low, -300, 300));
+  registerMetric(batteryPower = new MetricFloat(METRIC_HV_BATT_POWER, Unit::Kilowatts, Precision::Medium, -70, 100));
+  registerMetric(batteryCapacity = new MetricFloat(METRIC_HV_BATT_CAPACITY, Unit::KilowattHours, Precision::Medium, 0, 70));
+  registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium, 0, 100));
+  registerMetric(speed = new MetricFloat(METRIC_SPEED, Unit::KilometersPerHour, Precision::Medium, 0, 200));
+  registerMetric(batteryTemp = new MetricFloat(METRIC_HV_BATT_TEMPERATURE, Unit::Celsius, Precision::Low, -10, 100));
+  registerMetric(ambientTemp = new MetricFloat(METRIC_AMBIENT_TEMPERATURE, Unit::Celsius, Precision::Low, -10, 100));
+  registerMetric(fanSpeed = new MetricInt(METRIC_FAN_SPEED, Unit::None, 0, 10));
+  registerMetric(range = new MetricInt(METRIC_RANGE, Unit::Kilometers, 0, 1000));
+  registerMetric(chargeStatus = new MetricInt(METRIC_CHARGE_STATUS, Unit::None, 0, 2));
+  registerMetric(remainingChargeTime = new MetricInt(METRIC_REMAIN_CHARGE_TIME, Unit::Minutes, 0, 999999));
+  registerMetric(rangeAtLastCharge = new MetricInt(METRIC_RANGE_LAST_CHARGE, Unit::Kilometers, 0, 1000));
+  registerMetric(turnSignal = new MetricInt(METRIC_TURN_SIGNAL, Unit::None, 0, 3));
+  registerMetric(quickCharges = new MetricInt(METRIC_QUICK_CHARGES, Unit::None, 0, 999999));
+  registerMetric(slowCharges = new MetricInt(METRIC_SLOW_CHARGES, Unit::None, 0, 999999));
+  registerMetric(parkingBrake = new MetricInt(METRIC_PARK_BRAKE, Unit::None, 0, 1));
 
   registerTask(bmsTask = new PollTask(mainBus, 200, 500, 0x79B, 0x7BB, 6, bmsQuery));
   registerTask(slowChargesTask = new PollTask(mainBus, 300000, 500, 0x797, 0x79A, 1, slowChargesQuery));
@@ -81,12 +82,15 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
     }
     else if (frameId == 0x5B3) // VCM to Cluster
     {
-      uint32_t rawGids = ((frameData[4] & 0x01) << 8) | frameData[5];
+      uint16_t gids = ((frameData[4] & 0x01) << 8) | frameData[5];
       
       // Gids shows as high value on startup - this is incorrect, so we ignore it.
-      if (rawGids < 500) 
+      if (gids < 500) 
       {
-        socGids->setValue(rawGids);
+        // Range
+        double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
+        if (energyKwh < 0) energyKwh = 0;
+        range->setValue((int32_t)(energyKwh * KM_PER_KWH));
       }
 
       //uint32_t rawBatteryTemp = (frameData[0] / 2);
@@ -147,7 +151,7 @@ void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t
 
     batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
-    socPercent->setValue(((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0);
+    soc->setValue(((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0);
 
     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
     // Convert Ah to kWh
@@ -180,7 +184,7 @@ void VehicleNissanLeaf::updateExtraMetrics()
   {
     if (chargeStatus->value == 1 && batteryPower->value < 0) 
     {
-      double percentUntilFull = MAX_SOC_PERCENT - socPercent->value;
+      double percentUntilFull = MAX_SOC_PERCENT - soc->value;
 
       double energyRequired = batteryCapacity->value * (percentUntilFull/100.0);
       double chargeTimeHours = (energyRequired / -batteryPower->value) * 1.2;
@@ -211,14 +215,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
       rangeAtLastCharge->setValue(range->value);
     }
 
-    chargeStatus->reset();
-  }
-  else if (metric == socGids)
-  {
-    // Range
-    double energyKwh = ((socGids->value*WH_PER_GID)/1000.0)-1.15;
-    if (energyKwh < 0) energyKwh = 0;
-    range->setValue((int32_t)(energyKwh * KM_PER_KWH));
+    chargeStatus->setValue(0);
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
   {
@@ -228,7 +225,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   {
     if (gear->value == 0 && batteryPower->value <= -1) {
       chargeStatus->setValue(1);
-      rangeAtLastCharge->reset();
+      rangeAtLastCharge->setValue(0);
     }
     else if (chargeStatus->value == 1 && batteryPower->value >= -0.5)
     {

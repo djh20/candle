@@ -1,54 +1,52 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <AsyncTCP.h>
-#include <ESPAsyncWebServer.h>
-#include <ElegantOTA.h>
-#include <ArduinoJson.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
 #include "config.h"
+#include <BLEDevice.h>
+#include <BLEServer.h>
+#include <BLEUtils.h>
+#include <BLE2902.h>
+#include "vehicle/vehicle_catalog.h"
 
-#define JSON_DOC_SIZE 1024U
-#define WIFI_SCAN_INTERVAL 10000U
-#define SEND_INTERVAL 60U
+#define SEND_INTERVAL 50U
 
-IPAddress localIP(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0); 
- 
-AsyncWebServer server(80);
-AsyncEventSource events("/events");
+#define CONFIG_SERVICE_UUID "210a923d-927f-4c3b-ac85-49d60ce337e0"
+#define CATALOG_SERVICE_UUID "900e43d1-3436-4264-a166-201133f6337a"
 
-Vehicle* vehicle;
+Vehicle* currentVehicle;
 
-DynamicJsonDocument doc(JSON_DOC_SIZE);
-char jsonBuffer[JSON_DOC_SIZE];
-
-uint32_t nextScanMillis = 0;
 uint32_t lastSendMillis = 0;
-uint32_t sendCounter = 0;
 
-bool testing = false;
+bool bleDeviceConnected = false;
+BLEServer* bleServer;
 
-void onConnect(AsyncEventSourceClient *client) 
+BLECharacteristic *configVehicleId;
+
+class BluetoothCallbacks: public BLEServerCallbacks {
+  void onConnect(BLEServer* pServer) {
+    bleDeviceConnected = true;
+    Logger.log(Info, "ble", "Device connected");
+  };
+
+  void onDisconnect(BLEServer* pServer) {
+    bleDeviceConnected = false;
+    BLEDevice::startAdvertising();
+    Logger.log(Info, "ble", "Device disconnected");
+  }
+};
+
+void selectVehicle(VehicleEntry &entry)
 {
-  Logger.log(Debug, "sse", "New client connected");
-  memset(jsonBuffer, 0, JSON_DOC_SIZE);
-  doc.clear();
-  vehicle->metricsToJson(doc);
-  serializeJson(doc, jsonBuffer);
+  currentVehicle = entry.createVehicle();
+  currentVehicle->init(bleServer);
 
-  client->send(jsonBuffer, NULL, millis());
-}
-
-void onStationConnected(WiFiEvent_t event, WiFiEventInfo_t info)
-{
-  Logger.log(Debug, "wifi", "Connected to %s", info.wifi_sta_connected.ssid);
+  configVehicleId->setValue(entry.id);
 }
 
 void setup() 
 {
   Serial.begin(115200);
-  delay(500);
+  delay(1000);
 
   // Print splash art & info
   Serial.println();
@@ -57,142 +55,64 @@ void setup()
     "|    |__| |\\ | |  \\ |    |___\n"
     "|___ |  | | \\| |__/ |___ |___"
   );
+
   Serial.println("Version: DEV");
   Serial.println("Disclaimer: This is a work in progress.");
 
   Serial.println();
 
-  vehicle = new VehicleNissanLeaf();
+  BLEDevice::init("Candle");
+  bleServer = BLEDevice::createServer();
+  bleServer->setCallbacks(new BluetoothCallbacks());
+
+  BLEService *configService = bleServer->createService(CONFIG_SERVICE_UUID);
+  BLEService *catalogService = bleServer->createService(BLEUUID(CATALOG_SERVICE_UUID), 128, 0);
+
+  configVehicleId = configService->createCharacteristic(
+    BLEUUID((uint16_t) 0x0000),
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_NOTIFY
+  );
+  configVehicleId->addDescriptor(new BLE2902());
+
+  for (uint16_t i = 0; i < VEHICLE_CATALOG_LENGTH; i++)
+  {
+    VehicleEntry entry = vehicleCatalog[i];
+    Serial.println(entry.name);
+    catalogService->createCharacteristic(
+      BLEUUID(entry.id),
+      BLECharacteristic::PROPERTY_READ
+    )->setValue(entry.name);
+  }
+
+  configService->start();
+  catalogService->start();
   
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.setSleep(false);
-  WiFi.setAutoReconnect(false);
-  WiFi.onEvent(onStationConnected, WiFiEvent_t::ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  BLEDevice::startAdvertising();
 
-  WiFi.softAPConfig(localIP, localIP, subnet);
-  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD, 1, 1);
-
-  events.onConnect(onConnect);
-  server.addHandler(&events);
-
-  server.on("/api/vehicle/metrics/set", HTTP_GET, [](AsyncWebServerRequest *request)
-  {
-    if (!request->hasParam("id") || !request->hasParam("value"))
-    {
-      request->send(400);
-      return;
-    }
-
-    AsyncWebParameter *idParam = request->getParam("id");
-    AsyncWebParameter *valueParam = request->getParam("value");
-    
-    for (int i = 0; i < vehicle->totalMetrics; i++)
-    {
-      Metric* metric = vehicle->metrics[i];
-      if (strcmp(metric->id, idParam->value().c_str()) == 0)
-      {
-        metric->setValueFromString(valueParam->value());
-        break;
-      }
-    }
-
-    request->send(200);
-  });
-
-  server.on("/api/vehicle/metrics", HTTP_GET, [](AsyncWebServerRequest *request)
-  {
-    // Reply with all metrics.
-    memset(jsonBuffer, 0, JSON_DOC_SIZE);
-    doc.clear();
-    vehicle->metricsToJson(doc);
-    serializeJson(doc, jsonBuffer);
-
-    request->send(200, "application/json", jsonBuffer);
-  });
-
-  server.on("/api/test/stress", HTTP_GET, [](AsyncWebServerRequest *request)
-  {
-    testing = !testing;
-
-    request->send(200, "text/plain", testing ? "Stress Test Started" : "Stress Test Stopped");
-  });
-
-  ElegantOTA.begin(&server);
-  server.begin();
-  
-  // Wait for everything to initialize.
-  delay(100);
+  selectVehicle(vehicleCatalog[0]);
 }
 
 void loop() 
 {
-  vehicle->update();
-  
-  uint32_t now = millis();
-  
-  /* TEMPORARILY REMOVED TO FIX QUEUE ERROR
-  if (now >= nextScanMillis && !WiFi.isConnected() && !vehicle->active)
+  if (currentVehicle != NULL)
   {
-    Logger.log(Debug, "wifi", "Scanning for home network...");
-    WiFi.scanNetworks(true, true, true, 300U, 0U, WIFI_HOME_SSID);
-    nextScanMillis = now + WIFI_SCAN_INTERVAL;
-  }
+    currentVehicle->update();
 
-  int8_t totalNetworks = WiFi.scanComplete();
-  if (totalNetworks > 0)
-  {
-    Logger.log(Debug, "wifi", "Found %d network(s)", totalNetworks);
-    Logger.log(Debug, "wifi", "Connecting to %s...", WIFI_HOME_SSID);
-    WiFi.begin(WIFI_HOME_SSID, WIFI_HOME_PASSWORD);
-    WiFi.scanDelete();
-  }
-  */
+    uint32_t now = millis();
+    if (now - lastSendMillis >= SEND_INTERVAL && bleDeviceConnected) {
+      VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) currentVehicle;
+      leaf->gear->setValue(leaf->gear->value + 1, true);
+      currentVehicle->sendUpdatedMetrics(lastSendMillis);
 
-  if (now - lastSendMillis >= SEND_INTERVAL && events.count() > 0)
-  {
-    doc.clear();
+      float batteryPowerValue = leaf->batteryPower->value;
+      batteryPowerValue += 5;
+      if (batteryPowerValue > 100) batteryPowerValue = -100;
 
-    if (testing)
-    {
-      VehicleNissanLeaf* leaf = (VehicleNissanLeaf*) vehicle;
+      leaf->batteryPower->setValue(batteryPowerValue, true);
+      currentVehicle->sendUpdatedMetrics(lastSendMillis);
 
-      leaf->powered->setValue(1);
-      leaf->gear->setValue(3);
-      
-      float speed = leaf->speed->value + 1;
-      float power = leaf->batteryPower->value + 1;
-      int32_t range = leaf->range->value + 1;
-
-      if (speed > 100) speed = 0;
-      if (power > 80) power = -20;
-      if (range > 80) range = 0;
-
-      leaf->speed->setValue(speed);
-      leaf->batteryPower->setValue(power);
-      leaf->range->setValue(range);
+      lastSendMillis = now;
     }
-
-    if (++sendCounter >= 50)
-    {
-      vehicle->metricsToJson(doc);
-      sendCounter = 0;
-      //Logger.log(Debug, "ram", "Free Heap: %u", ESP.getFreeHeap());
-    } 
-    else 
-    {
-      vehicle->getUpdatedMetrics(doc, now - SEND_INTERVAL);
-    }
-   
-    if (!doc.isNull())
-    {
-      memset(jsonBuffer, 0, JSON_DOC_SIZE);
-      serializeJson(doc, jsonBuffer);
-      events.send(jsonBuffer, NULL, millis());
-    }
-
-    lastSendMillis = now;
   }
-
-  //ws.cleanupClients();
 }
