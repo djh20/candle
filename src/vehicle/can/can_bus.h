@@ -8,10 +8,11 @@ class CanBus
     CanBus(uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
             uint8_t speedset, uint8_t clockset);
 
-    bool init();
+    void init();
     bool readFrame();
     void sendFlowControl(uint32_t frameId);
     
+    bool initialized = false;
     uint8_t csPin;
     uint8_t intPin;
     uint8_t idmodeset;

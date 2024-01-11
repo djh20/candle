@@ -17,8 +17,13 @@ void PollTask::run()
   running = true;
   bufferIndex = 0;
   lastRunMillis = millis();
-  Logger.log(Debug, "task", "Sending query %X %X %X %X %X %X %X %X", query[0], query[1], query[2], query[3], query[4], query[5], query[6], query[7]);
-  bus->mcp->sendMsgBuf(requestId, 8, query);
+  if (bus->initialized) {
+    Logger.log(Debug, "task", "Sending query %X %X %X %X %X %X %X %X", query[0], query[1], query[2], query[3], query[4], query[5], query[6], query[7]);
+    bus->mcp->sendMsgBuf(requestId, 8, query);
+    
+  } else {
+    cancel();
+  }
 }
 
 void PollTask::success()

@@ -11,12 +11,12 @@ CanBus::CanBus(uint8_t csPin, uint8_t intPin, uint8_t idmodeset,
   this->clockset = clockset;
 }
 
-bool CanBus::init() {
+void CanBus::init() {
   mcp = new MCP_CAN(csPin);
-  if (mcp->begin(idmodeset, speedset, clockset) != CAN_OK) return false;
+  if (mcp->begin(idmodeset, speedset, clockset) != CAN_OK) return;
   
   mcp->setMode(MCP_NORMAL);
-  return true;
+  initialized = true;
 }
 
 bool CanBus::readFrame() 
