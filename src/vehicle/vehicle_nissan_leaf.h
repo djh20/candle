@@ -20,26 +20,26 @@ class VehicleNissanLeaf: public Vehicle
     CanBus* mainBus;
 
     MetricInt* gear;
-    MetricInt* powered;
-    //MetricInt* eco;
     MetricFloat* soc;
-    MetricInt* soh;
+    MetricFloat* soh;
+    MetricInt* range;
+    MetricFloat* speed;
+    MetricFloat* steeringAngle;
     MetricFloat* batteryVoltage;
     MetricFloat* batteryCurrent;
     MetricFloat* batteryPower;
     MetricFloat* batteryCapacity;
-    MetricFloat* speed;
     MetricFloat* batteryTemp;
     MetricFloat* ambientTemp;
     MetricInt* fanSpeed;
-    MetricInt* range;
     MetricInt* chargeStatus;
     MetricInt* remainingChargeTime;
     MetricInt* rangeAtLastCharge;
     MetricInt* turnSignal;
+    MetricInt* headlights;
+    MetricInt* parkBrake;
     MetricInt* quickCharges;
     MetricInt* slowCharges;
-    MetricInt* parkingBrake;
 
     uint8_t bmsQuery[8] = {0x02, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
     PollTask* bmsTask;

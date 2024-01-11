@@ -4,21 +4,21 @@
 #include <BLECharacteristic.h>
 #include <BLEDescriptor.h>
 
-enum MetricType 
-{
-  Int,
-  Float
-};
-
 // Generic Metrics
+#define METRIC_AWAKE 0x8B51
 #define METRIC_GEAR 0x2C96
-#define METRIC_IGNITION 0x8B51
 #define METRIC_SPEED 0x75AE
+#define METRIC_STEERING_ANGLE 0x35F8
 #define METRIC_FAN_SPEED 0x3419
 #define METRIC_RANGE 0xC3E8
 #define METRIC_TURN_SIGNAL 0x13CA
+#define METRIC_HEADLIGHTS 0xF20B
 #define METRIC_PARK_BRAKE 0x8BFE
 #define METRIC_AMBIENT_TEMPERATURE 0x2842
+#define METRIC_FL_TIRE_PRESSURE 0x858D
+#define METRIC_FR_TIRE_PRESSURE 0x5193
+#define METRIC_RL_TIRE_PRESSURE 0xFA16
+#define METRIC_RR_TIRE_PRESSURE 0x842D
 
 // EV Metrics
 #define METRIC_SOC 0x3DEE
@@ -29,10 +29,19 @@ enum MetricType
 #define METRIC_HV_BATT_CAPACITY 0x5F5F
 #define METRIC_HV_BATT_TEMPERATURE 0x87C9
 #define METRIC_CHARGE_STATUS 0x2DA6
-#define METRIC_REMAIN_CHARGE_TIME 0x31D1
+#define METRIC_REMAINING_CHARGE_TIME 0x31D1
 #define METRIC_RANGE_LAST_CHARGE 0x5E38
 #define METRIC_QUICK_CHARGES 0x90FB
 #define METRIC_SLOW_CHARGES 0x18AB
+
+// GPS Metrics
+#define METRIC_TRIP_DISTANCE 0x912F
+
+enum MetricType
+{
+  Int,
+  Float
+};
 
 enum Unit
 {
@@ -50,6 +59,7 @@ enum Unit
   Seconds = 11,
   Minutes = 12,
   Hours = 13,
+  PSI = 14,
 };
 
 enum Precision
@@ -65,6 +75,7 @@ class Metric
     Metric(uint16_t id, Unit unit);
 
     void onUpdate(std::function<void()> handler);
+    virtual void setValueFromRawData(uint8_t *data);
     virtual void setValueFromString(String str);
     
     bool initialized = false;
@@ -79,26 +90,24 @@ class Metric
 class MetricInt: public Metric 
 {
   public:
-    MetricInt(uint16_t id, Unit unit, int32_t minValue, int32_t maxValue);
+    MetricInt(uint16_t id, Unit unit);
 
-    void setValue(int32_t newValue, bool force = false);
+    void setValue(int32_t newValue, bool publish = true);
+    void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
 
     int32_t value = 0;
-    int32_t minValue;
-    int32_t maxValue;
 };
 
 class MetricFloat: public Metric 
 {
   public:
-    MetricFloat(uint16_t id, Unit unit, Precision precision, float minValue, float maxValue);
+    MetricFloat(uint16_t id, Unit unit, Precision precision);
 
-    void setValue(float newValue, bool force = false);
+    void setValue(float newValue, bool publish = true);
+    void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
  
     float value = 0;
-    float minValue;
-    float maxValue;
     Precision precision;
 };

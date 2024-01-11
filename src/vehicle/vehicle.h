@@ -27,9 +27,9 @@ class Vehicle
     virtual void updateExtraMetrics();
     virtual void metricUpdated(Metric *metric);
 
-    bool active = false;
-    bool moving = false;
-    
+    MetricInt *awake;
+    MetricFloat *tripDistance;
+
     CanBus *busses[8];
     uint8_t totalBusses = 0;
 

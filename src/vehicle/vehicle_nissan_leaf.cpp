@@ -10,26 +10,29 @@ void VehicleNissanLeaf::registerAll()
 {
   registerBus(mainBus = new CanBus(GPIO_NUM_2, GPIO_NUM_4, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
 
-  registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None, 0, 3));
-  registerMetric(powered = new MetricInt(METRIC_IGNITION, Unit::None, 0, 1));
-  registerMetric(soh = new MetricInt(METRIC_SOH, Unit::Percent, 0, 100));
-  registerMetric(batteryVoltage = new MetricFloat(METRIC_HV_BATT_VOLTAGE, Unit::Volts, Precision::Low, 100, 500));
-  registerMetric(batteryCurrent = new MetricFloat(METRIC_HV_BATT_CURRENT, Unit::Amps, Precision::Low, -300, 300));
-  registerMetric(batteryPower = new MetricFloat(METRIC_HV_BATT_POWER, Unit::Kilowatts, Precision::Medium, -70, 100));
-  registerMetric(batteryCapacity = new MetricFloat(METRIC_HV_BATT_CAPACITY, Unit::KilowattHours, Precision::Medium, 0, 70));
-  registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium, 0, 100));
-  registerMetric(speed = new MetricFloat(METRIC_SPEED, Unit::KilometersPerHour, Precision::Medium, 0, 200));
-  registerMetric(batteryTemp = new MetricFloat(METRIC_HV_BATT_TEMPERATURE, Unit::Celsius, Precision::Low, -10, 100));
-  registerMetric(ambientTemp = new MetricFloat(METRIC_AMBIENT_TEMPERATURE, Unit::Celsius, Precision::Low, -10, 100));
-  registerMetric(fanSpeed = new MetricInt(METRIC_FAN_SPEED, Unit::None, 0, 10));
-  registerMetric(range = new MetricInt(METRIC_RANGE, Unit::Kilometers, 0, 1000));
-  registerMetric(chargeStatus = new MetricInt(METRIC_CHARGE_STATUS, Unit::None, 0, 2));
-  registerMetric(remainingChargeTime = new MetricInt(METRIC_REMAIN_CHARGE_TIME, Unit::Minutes, 0, 999999));
-  registerMetric(rangeAtLastCharge = new MetricInt(METRIC_RANGE_LAST_CHARGE, Unit::Kilometers, 0, 1000));
-  registerMetric(turnSignal = new MetricInt(METRIC_TURN_SIGNAL, Unit::None, 0, 3));
-  registerMetric(quickCharges = new MetricInt(METRIC_QUICK_CHARGES, Unit::None, 0, 999999));
-  registerMetric(slowCharges = new MetricInt(METRIC_SLOW_CHARGES, Unit::None, 0, 999999));
-  registerMetric(parkingBrake = new MetricInt(METRIC_PARK_BRAKE, Unit::None, 0, 1));
+  registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None));
+  registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium));
+  registerMetric(soh = new MetricFloat(METRIC_SOH, Unit::Percent, Precision::Medium));
+  registerMetric(range = new MetricInt(METRIC_RANGE, Unit::Kilometers));
+  registerMetric(speed = new MetricFloat(METRIC_SPEED, Unit::KilometersPerHour, Precision::Medium));
+  registerMetric(steeringAngle = new MetricFloat(METRIC_STEERING_ANGLE, Unit::None, Precision::High));
+
+  registerMetric(batteryVoltage = new MetricFloat(METRIC_HV_BATT_VOLTAGE, Unit::Volts, Precision::Low));
+  registerMetric(batteryCurrent = new MetricFloat(METRIC_HV_BATT_CURRENT, Unit::Amps, Precision::Low));
+  registerMetric(batteryPower = new MetricFloat(METRIC_HV_BATT_POWER, Unit::Kilowatts, Precision::Medium));
+  registerMetric(batteryCapacity = new MetricFloat(METRIC_HV_BATT_CAPACITY, Unit::KilowattHours, Precision::Medium));
+  registerMetric(batteryTemp = new MetricFloat(METRIC_HV_BATT_TEMPERATURE, Unit::Celsius, Precision::Low));
+
+  registerMetric(ambientTemp = new MetricFloat(METRIC_AMBIENT_TEMPERATURE, Unit::Celsius, Precision::Low));
+  registerMetric(fanSpeed = new MetricInt(METRIC_FAN_SPEED, Unit::None));
+  registerMetric(chargeStatus = new MetricInt(METRIC_CHARGE_STATUS, Unit::None));
+  registerMetric(remainingChargeTime = new MetricInt(METRIC_REMAINING_CHARGE_TIME, Unit::Minutes));
+  registerMetric(rangeAtLastCharge = new MetricInt(METRIC_RANGE_LAST_CHARGE, Unit::Kilometers));
+  registerMetric(turnSignal = new MetricInt(METRIC_TURN_SIGNAL, Unit::None));
+  registerMetric(headlights = new MetricInt(METRIC_HEADLIGHTS, Unit::None));
+  registerMetric(parkBrake = new MetricInt(METRIC_PARK_BRAKE, Unit::None));
+  registerMetric(quickCharges = new MetricInt(METRIC_QUICK_CHARGES, Unit::None));
+  registerMetric(slowCharges = new MetricInt(METRIC_SLOW_CHARGES, Unit::None));
 
   registerTask(bmsTask = new PollTask(mainBus, 200, 500, 0x79B, 0x7BB, 6, bmsQuery));
   registerTask(slowChargesTask = new PollTask(mainBus, 300000, 500, 0x797, 0x79A, 1, slowChargesQuery));
@@ -55,9 +58,16 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
 {
   if (bus == mainBus)
   {
-    if (frameId == 0x60D) // BCM (Body Control Module)
+    if (frameId == 0x002) // Steering
     {
-      powered->setValue(((frameData[1] >> 1) & 0x03) == 3);
+      // Cast to int16_t so value becomes negative when turning left.
+      int16_t rawSteeringAngle = frameData[0] | (frameData[1] << 8);
+
+      steeringAngle->setValue(constrain(rawSteeringAngle / 6000.0, -1, 1));
+    } 
+    else if (frameId == 0x60D) // BCM (Body Control Module)
+    {
+      awake->setValue(((frameData[1] >> 1) & 0x03) >= 2);
     }
     else if (frameId == 0x421) // Instrument Panel Shifter
     {
@@ -108,6 +118,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
     else if (frameId == 0x358) // Indicators & Headlights
     {
       turnSignal->setValue((frameData[2] & 0x06) / 2);
+      headlights->setValue((frameData[1] >> 7) == 1);
     }
     else if (frameId == 0x54B) // Climate Control 1
     {
@@ -131,13 +142,13 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
     }
     else if (frameId == 0x5C5) // Parking Brake
     {
-      parkingBrake->setValue((frameData[0] & 0x04) == 0x04);
+      parkBrake->setValue((frameData[0] & 0x04) == 0x04);
     }
   }
 }
 
 void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {
-  if (task == bmsTask)
+  if (task == bmsTask && frames[1][0] == 0x21)
   {
     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
     if (rawCurrentOne & 0x8000000 == 0x8000000) {
@@ -200,15 +211,7 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric) 
 {
-  if (metric == powered)
-  {
-    active = powered->value;
-  }
-  else if (metric == speed)
-  {
-    moving = (speed->value > 0);
-  }
-  else if (metric == gear && gear->value > 0)
+  if (metric == gear && gear->value > 0)
   {
     if (rangeAtLastCharge->value == 0)
     {
@@ -226,6 +229,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     if (gear->value == 0 && batteryPower->value <= -1) {
       chargeStatus->setValue(1);
       rangeAtLastCharge->setValue(0);
+      tripDistance->setValue(0);
     }
     else if (chargeStatus->value == 1 && batteryPower->value >= -0.5)
     {

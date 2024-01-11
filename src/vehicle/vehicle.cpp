@@ -9,6 +9,9 @@ void Vehicle::init(BLEServer *bleServer)
   this->bleServer = bleServer;
   bleService = bleServer->createService(BLEUUID(METRICS_SERVICE_UUID), 128U, 0);
 
+  registerMetric(awake = new MetricInt(METRIC_AWAKE, Unit::None));
+  registerMetric(tripDistance = new MetricFloat(METRIC_TRIP_DISTANCE, Unit::Kilometers, Precision::High));
+
   registerAll();
 
   bleService->start();
@@ -17,9 +20,9 @@ void Vehicle::init(BLEServer *bleServer)
 void Vehicle::registerBus(CanBus *bus)
 {
   uint8_t id = totalBusses;
-  bool initialized = bus->init();
+  bus->init();
 
-  if (!initialized) {
+  if (!bus->initialized) {
     Logger.log(Error, "vehicle", "Failed to register bus %u", id);
     return;
   }
@@ -106,26 +109,27 @@ void Vehicle::handleTasks()
     }
     else if (now - currentTask->lastRunMillis >= currentTask->timeout)
     {
-      Logger.log(Debug, "vehicle", "Cancelling task %u", currentTaskIndex);
+      //Logger.log(Debug, "vehicle", "Cancelling task %u", currentTaskIndex);
       currentTask->cancel();
       currentTask = NULL;
     }
     else return;
   }
 
-  if (!active) return;
+  // Only run tasks if vehicle awake for at least 2 seconds.
+  if (awake->value && (now - awake->lastUpdateMillis) >= 2000) {
+    for (uint8_t offset = 0; offset < totalTasks; offset++)
+    {
+      uint8_t i = (currentTaskIndex + offset) % totalTasks;
 
-  for (uint8_t offset = 0; offset < totalTasks; offset++)
-  {
-    uint8_t i = (currentTaskIndex + offset) % totalTasks;
-
-    PollTask* task = tasks[i];
-    if (now >= task->nextRunMillis) {
-      currentTask = task;
-      currentTaskIndex = i;
-      Logger.log(Debug, "vehicle", "Running task %u", i);
-      task->run();
-      return;
+      PollTask* task = tasks[i];
+      if (now >= task->nextRunMillis) {
+        currentTask = task;
+        currentTaskIndex = i;
+        //Logger.log(Debug, "vehicle", "Running task %u", i);
+        task->run();
+        return;
+      }
     }
   }
 }
