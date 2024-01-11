@@ -8,7 +8,10 @@
 #include <BLE2902.h>
 #include "vehicle/vehicle_catalog.h"
 
-#define SEND_INTERVAL 50U
+#define SEND_INTERVAL 60U
+
+//#define TEST_MODE
+#define TEST_UPDATE_INTERVAL 500U
 
 #define CONFIG_SERVICE_UUID "210a923d-927f-4c3b-ac85-49d60ce337e0"
 #define CATALOG_SERVICE_UUID "900e43d1-3436-4264-a166-201133f6337a"
@@ -16,8 +19,11 @@
 Vehicle* currentVehicle;
 
 uint32_t lastSendMillis = 0;
+uint32_t nextTestUpdateMillis = 0;
+uint32_t startAdvertisingMillis = 0;
 
 bool bleDeviceConnected = false;
+bool bleAdvertising = false;
 BLEServer* bleServer;
 
 BLECharacteristic *configVehicleId;
@@ -25,12 +31,13 @@ BLECharacteristic *configVehicleId;
 class BluetoothCallbacks: public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     bleDeviceConnected = true;
+    bleAdvertising = false;
     Logger.log(Info, "ble", "Device connected");
   };
 
   void onDisconnect(BLEServer* pServer) {
     bleDeviceConnected = false;
-    BLEDevice::startAdvertising();
+    startAdvertisingMillis = millis() + 500;
     Logger.log(Info, "ble", "Device disconnected");
   }
 };
@@ -100,19 +107,53 @@ void loop()
     currentVehicle->update();
 
     uint32_t now = millis();
+    if (!bleAdvertising && startAdvertisingMillis >= now) {
+      bleAdvertising = true;
+      BLEDevice::startAdvertising();
+    }
+
     if (now - lastSendMillis >= SEND_INTERVAL && bleDeviceConnected) {
-      VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) currentVehicle;
-      leaf->gear->setValue(leaf->gear->value + 1, true);
       currentVehicle->sendUpdatedMetrics(lastSendMillis);
-
-      float batteryPowerValue = leaf->batteryPower->value;
-      batteryPowerValue += 5;
-      if (batteryPowerValue > 100) batteryPowerValue = -100;
-
-      leaf->batteryPower->setValue(batteryPowerValue, true);
-      currentVehicle->sendUpdatedMetrics(lastSendMillis);
-
       lastSendMillis = now;
     }
+
+    #ifdef TEST_MODE
+    if (now >= nextTestUpdateMillis) {
+      VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) currentVehicle;
+
+      leaf->awake->setValue(1);
+      leaf->gear->setValue(3);
+      leaf->soc->setValue(85.5);
+      leaf->range->setValue(104);
+      leaf->batteryTemp->setValue(43);
+      leaf->batteryCapacity->setValue(27);
+      leaf->soh->setValue(87.32);
+
+      leaf->parkBrake->setValue(!leaf->parkBrake->value);
+      leaf->headlights->setValue(!leaf->headlights->value);
+
+      // float gearValue = leaf->gear->value;
+      // gearValue += 1;
+      // if (gearValue > 3) gearValue = 0;
+      // leaf->gear->setValue(gearValue);
+
+      float speedValue = leaf->speed->value;
+      speedValue += 5;
+      if (speedValue > 100) speedValue = 0;
+      leaf->speed->setValue(speedValue);
+
+      float powerValue = leaf->batteryPower->value;
+      powerValue += 5;
+      if (powerValue > 80) powerValue = 0;
+      leaf->batteryPower->setValue(powerValue);
+
+      float steeringValue = leaf->steeringAngle->value;
+      steeringValue += 0.2;
+      if (steeringValue > 1) steeringValue = -1;
+      leaf->steeringAngle->setValue(steeringValue);
+      
+      nextTestUpdateMillis = now + TEST_UPDATE_INTERVAL;
+    }
+    #endif
   }
 }
