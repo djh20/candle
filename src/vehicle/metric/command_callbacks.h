@@ -1,15 +1,16 @@
 #pragma once
 
 #include "metric.h"
+#include "../vehicle.h"
 #include <BLECharacteristic.h>
 
-class MetricBLECallbacks: public BLECharacteristicCallbacks 
+class CommandCallbacks: public BLECharacteristicCallbacks 
 {
   public:
-    MetricBLECallbacks(Metric *metric);
+    CommandCallbacks(Vehicle *vehicle);
 
     void onWrite(BLECharacteristic *pCharacteristic);
 
   private:
-    Metric *metric;
+    Vehicle *vehicle;
 };

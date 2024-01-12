@@ -5,8 +5,13 @@
 #include "can/poll_task.h"
 #include <mcp_can.h>
 #include <BLEServer.h>
+#include <BLECharacteristic.h>
 
 #define METRICS_SERVICE_UUID "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define COMMAND_CHARACTERISTIC_UUID "5a1d631e-66de-4f28-8927-bf28ee1969da"
+#define DESCRIPTOR_UUID 0x8C19
+#define MAX_CHARACTERISTIC_VALUE_SIZE 64
+#define MAX_DESCRIPTOR_VALUE_SIZE 100
 
 class Vehicle 
 {
@@ -17,6 +22,7 @@ class Vehicle
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
     void registerTask(PollTask *task);
+    void registerCharacteristic(BLECharacteristic *characteristic);
     void update();
     void readAndProcessBusData();
     void sendUpdatedMetrics(uint32_t sinceMillis);
@@ -29,6 +35,10 @@ class Vehicle
 
     MetricInt *awake;
     MetricFloat *tripDistance;
+
+    BLECharacteristic *metricCharacteristics[16];
+    uint8_t totalMetricCharacteristics = 0;
+    uint8_t characteristicValueBuffer[MAX_CHARACTERISTIC_VALUE_SIZE];
 
     CanBus *busses[8];
     uint8_t totalBusses = 0;

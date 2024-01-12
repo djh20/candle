@@ -10,7 +10,7 @@
 
 #define SEND_INTERVAL 60U
 
-//#define TEST_MODE
+// #define TEST_MODE
 #define TEST_UPDATE_INTERVAL 500U
 
 #define CONFIG_SERVICE_UUID "210a923d-927f-4c3b-ac85-49d60ce337e0"

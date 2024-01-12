@@ -77,14 +77,17 @@ class Metric
     void onUpdate(std::function<void()> handler);
     virtual void setValueFromRawData(uint8_t *data);
     virtual void setValueFromString(String str);
+    virtual uint8_t getDataSize();
+    virtual void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
+    virtual void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
     
     bool initialized = false;
     uint16_t id;
     uint32_t lastUpdateMillis = 0;
     Unit unit;
     std::function<void()> updateHandler;
-    BLECharacteristic *bleCharacteristic;
-    BLEDescriptor *bleDescriptor;
+    // BLECharacteristic *bleCharacteristic;
+    // BLEDescriptor *bleDescriptor;
 };
 
 class MetricInt: public Metric 
@@ -92,9 +95,12 @@ class MetricInt: public Metric
   public:
     MetricInt(uint16_t id, Unit unit);
 
-    void setValue(int32_t newValue, bool publish = true);
+    void setValue(int32_t newValue);
     void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
+    uint8_t getDataSize();
+    void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
+    void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
 
     int32_t value = 0;
 };
@@ -104,9 +110,12 @@ class MetricFloat: public Metric
   public:
     MetricFloat(uint16_t id, Unit unit, Precision precision);
 
-    void setValue(float newValue, bool publish = true);
+    void setValue(float newValue);
     void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
+    uint8_t getDataSize();
+    void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
+    void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
  
     float value = 0;
     Precision precision;
