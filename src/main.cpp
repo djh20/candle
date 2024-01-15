@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
-#include "config.h"
 #include <BLEDevice.h>
 #include <BLEServer.h>
 #include <BLEUtils.h>
