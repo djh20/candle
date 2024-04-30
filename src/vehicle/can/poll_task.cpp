@@ -44,6 +44,13 @@ bool PollTask::processFrame(uint8_t *frameData)
     buffer[bufferIndex][i] = frameData[i];
   }
 
+  Logger.log(
+    Debug,
+    "task",
+    "Response (%u): %X %X %X %X %X %X %X %X",
+    bufferIndex, frameData[0], frameData[1], frameData[2], frameData[3], frameData[4], frameData[5], frameData[6], frameData[7]
+  );
+
   if (bufferIndex >= responseFrames-1)
   {
     success();

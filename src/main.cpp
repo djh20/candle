@@ -8,6 +8,7 @@
 #include "vehicle/vehicle_catalog.h"
 
 #define SEND_INTERVAL 60U
+#define ADVERTISE_DELAY 500U
 
 // #define TEST_MODE
 #define TEST_UPDATE_INTERVAL 500U
@@ -18,8 +19,8 @@
 Vehicle* currentVehicle;
 
 uint32_t lastSendMillis = 0;
-uint32_t nextTestUpdateMillis = 0;
-uint32_t startAdvertisingMillis = 0;
+uint32_t lastDisconnectMillis = 0;
+uint32_t lastTestMillis = 0;
 
 bool bleDeviceConnected = false;
 bool bleAdvertising = false;
@@ -36,7 +37,7 @@ class BluetoothCallbacks: public BLEServerCallbacks {
 
   void onDisconnect(BLEServer* pServer) {
     bleDeviceConnected = false;
-    startAdvertisingMillis = millis() + 500;
+    lastDisconnectMillis = millis();
     Logger.log(Info, "ble", "Device disconnected");
   }
 };
@@ -52,7 +53,7 @@ void selectVehicle(VehicleEntry &entry)
 void setup() 
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
 
   // Print splash art & info
   Serial.println();
@@ -81,20 +82,19 @@ void setup()
   );
   configVehicleId->addDescriptor(new BLE2902());
 
-  for (uint16_t i = 0; i < VEHICLE_CATALOG_LENGTH; i++)
+  for (const auto& entry : vehicleCatalog)
   {
-    VehicleEntry entry = vehicleCatalog[i];
-    Serial.println(entry.name);
     catalogService->createCharacteristic(
       BLEUUID(entry.id),
       BLECharacteristic::PROPERTY_READ
     )->setValue(entry.name);
   }
-
+  
   configService->start();
   catalogService->start();
   
-  BLEDevice::startAdvertising();
+  // BLEDevice::startAdvertising();
+  // bleAdvertising = true;
 
   selectVehicle(vehicleCatalog[0]);
 }
@@ -106,9 +106,15 @@ void loop()
     currentVehicle->update();
 
     uint32_t now = millis();
-    if (!bleAdvertising && startAdvertisingMillis >= now) {
-      bleAdvertising = true;
+    if (!bleAdvertising && !bleDeviceConnected && currentVehicle->awake->value && now - lastDisconnectMillis >= ADVERTISE_DELAY) {
       BLEDevice::startAdvertising();
+      bleAdvertising = true;
+      Logger.log(Info, "ble", "Started advertising");
+
+    } else if (bleAdvertising && !currentVehicle->awake->value) {
+      BLEDevice::stopAdvertising();
+      bleAdvertising = false;
+      Logger.log(Info, "ble", "Stopped advertising");
     }
 
     if (now - lastSendMillis >= SEND_INTERVAL && bleDeviceConnected) {
@@ -117,7 +123,7 @@ void loop()
     }
 
     #ifdef TEST_MODE
-    if (now >= nextTestUpdateMillis) {
+    if (now - lastTestMillis >= TEST_UPDATE_INTERVAL) {
       VehicleNissanLeaf *leaf = (VehicleNissanLeaf*) currentVehicle;
 
       leaf->awake->setValue(1);
@@ -151,7 +157,7 @@ void loop()
       if (steeringValue > 1) steeringValue = -1;
       leaf->steeringAngle->setValue(steeringValue);
       
-      nextTestUpdateMillis = now + TEST_UPDATE_INTERVAL;
+      lastTestMillis = now;
     }
     #endif
   }

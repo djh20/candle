@@ -43,7 +43,7 @@ void Vehicle::init(BLEServer *bleServer)
       int32_t val =32;
       characteristic->setValue(val);
 
-      // TODO: Someow hget data size without explicitly writing method for it.
+      // TODO: Somehow get data size without explicitly writing method for it.
       uint8_t characteristicValueSize = characteristicValueIndex + metric->getDataSize();
 
       if (characteristicValueSize > MAX_CHARACTERISTIC_VALUE_SIZE)
@@ -114,9 +114,12 @@ void Vehicle::update()
 
 void Vehicle::readAndProcessBusData()
 {
-  for (int i = 0; i < totalBusses; i++) 
+  for (uint8_t busIndex = 0; busIndex < totalBusses; busIndex++) 
   {
-    CanBus *bus = busses[i];
+    CanBus *bus = busses[busIndex];
+
+    // Attempt to read 10 frames to ensure we don't miss any.
+    // TODO: Determine if this is necessary.
     for (uint8_t i = 0; i < 10; i++)
     {
       bool gotFrame = bus->readFrame();
