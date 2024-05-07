@@ -9,14 +9,15 @@ Vehicle::Vehicle() {}
 void Vehicle::init(BLEServer *bleServer)
 {
   this->bleServer = bleServer;
-  bleService = bleServer->createService(BLEUUID(METRICS_SERVICE_UUID), 128U, 0);
+  bleService = bleServer->createService(generateUUID(BLE_SERVICE_METRICS), 128U, 0);
 
   BLECharacteristic *commandCharacteristic = new BLECharacteristic(
-    BLEUUID(COMMAND_CHARACTERISTIC_UUID),
-    BLECharacteristic::PROPERTY_READ |
+    generateUUID(BLE_CHARACTERISTIC_METRIC_MUTATOR),
+    //BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE
   );
 
+  // commandCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
   commandCharacteristic->setCallbacks(new CommandCallbacks(this));
 
   bleService->addCharacteristic(commandCharacteristic);
@@ -28,25 +29,29 @@ void Vehicle::init(BLEServer *bleServer)
   
   for (uint8_t i = 0; i < totalMetrics;) {
     BLECharacteristic *characteristic = new BLECharacteristic(
-      BLEUUID((uint16_t)totalMetricCharacteristics),
+      generateUUID(BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalMetricCharacteristics),
       BLECharacteristic::PROPERTY_READ |
       BLECharacteristic::PROPERTY_NOTIFY
     );
+    // characteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+
     uint8_t characteristicValueIndex = 0;
 
-    BLEDescriptor *descriptor = new BLEDescriptor(BLEUUID((uint16_t)DESCRIPTOR_UUID), MAX_DESCRIPTOR_VALUE_SIZE);
-    uint8_t descriptorBuffer[MAX_DESCRIPTOR_VALUE_SIZE];
+    BLEDescriptor *descriptor = new BLEDescriptor(
+      generateUUID(BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
+      BLE_SIZE_GROUPED_METRIC_INFO
+    );
+    // descriptor->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+    uint8_t descriptorBuffer[BLE_SIZE_GROUPED_METRIC_INFO];
     uint8_t descriptorBufferSize = 0;
   
     for (; i < totalMetrics; i++) {
       Metric *metric = metrics[i];
-      int32_t val =32;
-      characteristic->setValue(val);
 
       // TODO: Somehow get data size without explicitly writing method for it.
       uint8_t characteristicValueSize = characteristicValueIndex + metric->getDataSize();
 
-      if (characteristicValueSize > MAX_CHARACTERISTIC_VALUE_SIZE)
+      if (characteristicValueSize > BLE_SIZE_GROUPED_METRIC_DATA)
         break;
 
       metric->getDescriptorData(descriptorBuffer, descriptorBufferSize, characteristicValueIndex);
@@ -56,7 +61,10 @@ void Vehicle::init(BLEServer *bleServer)
     descriptor->setValue(descriptorBuffer, descriptorBufferSize);
 
     characteristic->addDescriptor(descriptor);
-    characteristic->addDescriptor(new BLE2902());
+
+    BLEDescriptor *notifyDescriptor = new BLE2902();
+    // notifyDescriptor->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+    characteristic->addDescriptor(notifyDescriptor);
 
     registerCharacteristic(characteristic);
   }
@@ -154,7 +162,7 @@ void Vehicle::sendUpdatedMetrics(uint32_t sinceMillis)
       Metric *metric = metrics[i];
       uint8_t characteristicValueSize = characteristicValueIndex + metric->getDataSize();
 
-      if (characteristicValueSize > MAX_CHARACTERISTIC_VALUE_SIZE)
+      if (characteristicValueSize > BLE_SIZE_GROUPED_METRIC_DATA)
         break;
       
       metric->getValueData(characteristicValueBuffer, characteristicValueIndex);

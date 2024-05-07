@@ -5,20 +5,6 @@ Metric::Metric(uint16_t id, Unit unit)
 {
   this->id = id;
   this->unit = unit;
-
-  // bleCharacteristic = new BLECharacteristic(
-  //   BLEUUID(id),
-  //   BLECharacteristic::PROPERTY_READ |
-  //   BLECharacteristic::PROPERTY_WRITE |
-  //   BLECharacteristic::PROPERTY_NOTIFY
-  // );
-
-  // bleDescriptor = new BLEDescriptor(BLEUUID((uint16_t) 0x0000));
-  // bleCharacteristic->addDescriptor(bleDescriptor);
-
-  // bleCharacteristic->addDescriptor(new BLE2902());
-  
-  // bleCharacteristic->setCallbacks(new MetricBLECallbacks(this));
 }
 
 void Metric::onUpdate(std::function<void()> handler)
@@ -28,7 +14,7 @@ void Metric::onUpdate(std::function<void()> handler)
 
 void Metric::setValueFromRawData(uint8_t *data) {}
 void Metric::setValueFromString(String str) {}
-uint8_t Metric::getDataSize() {}
+uint8_t Metric::getDataSize() { return 0; }
 void Metric::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex) {}
 void Metric::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {}
 
@@ -47,7 +33,6 @@ void MetricInt::setValue(int32_t newValue)
 }
 
 void MetricInt::setValueFromRawData(uint8_t *data) {
-  //setValue(data[0] | (data[1] << 8) | (data[2] << 16) | (data[3] << 24));
   setValue((data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3]);
 }
 

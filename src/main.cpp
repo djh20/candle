@@ -6,15 +6,17 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include "vehicle/vehicle_catalog.h"
+#include "ble.h"
+
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
 
 #define SEND_INTERVAL 60U
 #define ADVERTISE_DELAY 500U
 
-// #define TEST_MODE
+#define TEST_MODE
 #define TEST_UPDATE_INTERVAL 500U
-
-#define CONFIG_SERVICE_UUID "210a923d-927f-4c3b-ac85-49d60ce337e0"
-#define CATALOG_SERVICE_UUID "900e43d1-3436-4264-a166-201133f6337a"
 
 Vehicle* currentVehicle;
 
@@ -36,8 +38,8 @@ class BluetoothCallbacks: public BLEServerCallbacks {
   };
 
   void onDisconnect(BLEServer* pServer) {
-    bleDeviceConnected = false;
     lastDisconnectMillis = millis();
+    bleDeviceConnected = false;
     Logger.log(Info, "ble", "Device disconnected");
   }
 };
@@ -72,26 +74,93 @@ void setup()
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new BluetoothCallbacks());
 
-  BLEService *configService = bleServer->createService(CONFIG_SERVICE_UUID);
-  BLEService *catalogService = bleServer->createService(BLEUUID(CATALOG_SERVICE_UUID), 128, 0);
+  BLEService *deviceInfoService = bleServer->createService(BLEUUID((uint16_t)BLE_STD_SERVICE_DEVICE_INFO));
 
-  configVehicleId = configService->createCharacteristic(
-    BLEUUID((uint16_t) 0x0000),
+  deviceInfoService->createCharacteristic(
+    BLEUUID((uint16_t)BLE_STD_CHARACTERISTIC_MODEL_NUMBER),
+    BLECharacteristic::PROPERTY_READ
+  )->setValue(HARDWARE_MODEL);
+
+  deviceInfoService->createCharacteristic(
+    BLEUUID((uint16_t)BLE_STD_CHARACTERISTIC_FIRMWARE_VERSION),
+    BLECharacteristic::PROPERTY_READ
+  )->setValue(FIRMWARE_VERSION);
+
+  deviceInfoService->start();
+
+
+  BLEService *otaService = bleServer->createService(generateUUID(BLE_SERVICE_OTA));
+  
+  otaService->createCharacteristic(
+    generateUUID(BLE_CHARACTERISTIC_OTA_COMMAND),
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_WRITE
+  );
+
+  otaService->createCharacteristic(
+    generateUUID(BLE_CHARACTERISTIC_OTA_DATA),
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_WRITE
+  );
+
+  otaService->start();
+
+
+  BLEService *debugService = bleServer->createService(generateUUID(BLE_SERVICE_DEBUG));
+  
+  debugService->createCharacteristic(
+    generateUUID(BLE_CHARACTERISTIC_DEBUG_COMMAND),
+    BLECharacteristic::PROPERTY_READ |
+    BLECharacteristic::PROPERTY_WRITE
+  );
+
+  debugService->createCharacteristic(
+    generateUUID(BLE_CHARACTERISTIC_DEBUG_LOG),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_NOTIFY
   );
-  configVehicleId->addDescriptor(new BLE2902());
+
+  debugService->start();
+
+
+  BLEService *configService = bleServer->createService(generateUUID(BLE_SERVICE_CONFIG));
+
+  configVehicleId = configService->createCharacteristic(
+    generateUUID(BLE_CHARACTERISTIC_CONFIG_VEHICLE),
+    BLECharacteristic::PROPERTY_READ
+  );
+  
+  configService->start();
+
+
+  BLEService *vehicleCatalogService = bleServer->createService(generateUUID(BLE_SERVICE_VEHICLE_CATALOG), 128U);
+
+  // BLECharacteristic *configDeviceName = configService->createCharacteristic(
+  //   BLEUUID((uint16_t) 0x2A00),
+  //   BLECharacteristic::PROPERTY_READ |
+  //   BLECharacteristic::PROPERTY_WRITE
+  // );
+  // configDeviceName->setValue("Test");
+  // configDeviceName->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
 
   for (const auto& entry : vehicleCatalog)
   {
-    catalogService->createCharacteristic(
-      BLEUUID(entry.id),
+    BLECharacteristic *characteristic = vehicleCatalogService->createCharacteristic(
+      // BLEUUID(entry.id),
+      generateUUID(BLE_CHARACTERISTIC_SUPPORTED_VEHICLE, entry.id),
       BLECharacteristic::PROPERTY_READ
-    )->setValue(entry.name);
+    );
+    characteristic->setValue(entry.name);
+    // characteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
   }
   
-  configService->start();
-  catalogService->start();
+  vehicleCatalogService->start();
+
+  BLESecurity *security = new BLESecurity();
+
+  // security->setStaticPIN(123456);
+  // security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
+  // security->setCapability(ESP_IO_CAP_OUT);
   
   // BLEDevice::startAdvertising();
   // bleAdvertising = true;
