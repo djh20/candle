@@ -1,3 +1,7 @@
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "dev"
+#endif
+
 #include <Arduino.h>
 #include "vehicle/vehicle_nissan_leaf.h"
 #include "utils/logger.h"
@@ -6,16 +10,13 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include "vehicle/vehicle_catalog.h"
-#include "ble.h"
-
-#ifndef FIRMWARE_VERSION
-#define FIRMWARE_VERSION "dev"
-#endif
+#include "ble/uuid.h"
+#include "config/global_config.h"
 
 #define SEND_INTERVAL 60U
 #define ADVERTISE_DELAY 500U
 
-#define TEST_MODE
+// #define TEST_MODE
 #define TEST_UPDATE_INTERVAL 500U
 
 Vehicle* currentVehicle;
@@ -54,8 +55,12 @@ void selectVehicle(VehicleEntry &entry)
 
 void setup() 
 {
-  Serial.begin(115200);
+  GlobalConfig.begin("config");
   delay(500);
+
+  #ifdef SERIAL_ENABLE
+  Serial.begin(115200);
+  delay(1000);
 
   // Print splash art & info
   Serial.println();
@@ -65,12 +70,14 @@ void setup()
     "|___ |  | | \\| |__/ |___ |___"
   );
 
-  Serial.println("Version: DEV");
+  Serial.println("Version: " FIRMWARE_VERSION);
   Serial.println("Disclaimer: This is a work in progress.");
 
   Serial.println();
+  #endif
 
-  BLEDevice::init("Candle");
+  BLEDevice::init(GlobalConfig.getBluetoothName());
+  
   bleServer = BLEDevice::createServer();
   bleServer->setCallbacks(new BluetoothCallbacks());
 

@@ -21,6 +21,7 @@ SerialLogger::SerialLogger() {}
 
 void SerialLogger::log(LogLevel level, const char *topic, const char *format, ...)
 {
+  #ifdef SERIAL_ENABLE
   va_list args;
   va_start(args, format);
 
@@ -31,6 +32,7 @@ void SerialLogger::log(LogLevel level, const char *topic, const char *format, ..
   Serial.printf("%c  %-10u  %-10s  %s\n", LOG_LEVEL_SYMBOLS[level], now, topic, msgBuffer);
 
   va_end(args);
+  #endif
 }
 
 SerialLogger Logger;

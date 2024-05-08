@@ -3,7 +3,7 @@
 #include "metric/metric.h"
 #include "can/can_bus.h"
 #include "can/poll_task.h"
-#include "ble.h"
+#include "../ble/uuid.h"
 #include <mcp_can.h>
 #include <BLEServer.h>
 #include <BLECharacteristic.h>
@@ -33,7 +33,7 @@ class Vehicle
 
     BLECharacteristic *metricCharacteristics[16];
     uint8_t totalMetricCharacteristics = 0;
-    uint8_t characteristicValueBuffer[BLE_SIZE_GROUPED_METRIC_DATA];
+    uint8_t characteristicValueBuffer[BLE_LEN_GROUPED_METRIC_DATA];
 
     CanBus *busses[8];
     uint8_t totalBusses = 0;
