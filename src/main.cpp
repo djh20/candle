@@ -11,10 +11,11 @@
 #include <BLE2902.h>
 #include "vehicle/vehicle_catalog.h"
 #include "ble/uuid.h"
-#include "config/global_config.h"
+#include "ble/bluetooth_manager.h"
+#include "vehicle/vehicle_manager.h"
+#include "config/config.h"
 
 #define SEND_INTERVAL 60U
-#define ADVERTISE_DELAY 500U
 
 // #define TEST_MODE
 #define TEST_UPDATE_INTERVAL 500U
@@ -22,33 +23,14 @@
 Vehicle* currentVehicle;
 
 uint32_t lastSendMillis = 0;
-uint32_t lastDisconnectMillis = 0;
 uint32_t lastTestMillis = 0;
 
-bool bleDeviceConnected = false;
-bool bleAdvertising = false;
-BLEServer* bleServer;
-
 BLECharacteristic *configVehicleId;
-
-class BluetoothCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    bleDeviceConnected = true;
-    bleAdvertising = false;
-    Logger.log(Info, "ble", "Device connected");
-  };
-
-  void onDisconnect(BLEServer* pServer) {
-    lastDisconnectMillis = millis();
-    bleDeviceConnected = false;
-    Logger.log(Info, "ble", "Device disconnected");
-  }
-};
 
 void selectVehicle(VehicleEntry &entry)
 {
   currentVehicle = entry.createVehicle();
-  currentVehicle->init(bleServer);
+  currentVehicle->init(GlobalBluetoothManager.server);
 
   configVehicleId->setValue(entry.id);
 }
@@ -56,6 +38,9 @@ void selectVehicle(VehicleEntry &entry)
 void setup() 
 {
   GlobalConfig.begin("config");
+  GlobalBluetoothManager.begin();
+  GlobalVehicleManager.begin();
+
   delay(500);
 
   #ifdef SERIAL_ENABLE
@@ -76,13 +61,7 @@ void setup()
   Serial.println();
   #endif
 
-  BLEDevice::init(GlobalConfig.getBluetoothName());
-  
-  bleServer = BLEDevice::createServer();
-  bleServer->setCallbacks(new BluetoothCallbacks());
-
-  BLEService *deviceInfoService = bleServer->createService(BLEUUID((uint16_t)BLE_STD_SERVICE_DEVICE_INFO));
-
+  BLEService *deviceInfoService = GlobalBluetoothManager.server->createService(BLEUUID((uint16_t)BLE_STD_SERVICE_DEVICE_INFO));
   deviceInfoService->createCharacteristic(
     BLEUUID((uint16_t)BLE_STD_CHARACTERISTIC_MODEL_NUMBER),
     BLECharacteristic::PROPERTY_READ
@@ -96,7 +75,7 @@ void setup()
   deviceInfoService->start();
 
 
-  BLEService *otaService = bleServer->createService(generateUUID(BLE_SERVICE_OTA));
+  BLEService *otaService = GlobalBluetoothManager.server->createService(generateUUID(BLE_SERVICE_OTA));
   
   otaService->createCharacteristic(
     generateUUID(BLE_CHARACTERISTIC_OTA_COMMAND),
@@ -113,7 +92,7 @@ void setup()
   otaService->start();
 
 
-  BLEService *debugService = bleServer->createService(generateUUID(BLE_SERVICE_DEBUG));
+  BLEService *debugService = GlobalBluetoothManager.server->createService(generateUUID(BLE_SERVICE_DEBUG));
   
   debugService->createCharacteristic(
     generateUUID(BLE_CHARACTERISTIC_DEBUG_COMMAND),
@@ -130,7 +109,7 @@ void setup()
   debugService->start();
 
 
-  BLEService *configService = bleServer->createService(generateUUID(BLE_SERVICE_CONFIG));
+  BLEService *configService = GlobalBluetoothManager.server->createService(generateUUID(BLE_SERVICE_CONFIG));
 
   configVehicleId = configService->createCharacteristic(
     generateUUID(BLE_CHARACTERISTIC_CONFIG_VEHICLE),
@@ -138,39 +117,6 @@ void setup()
   );
   
   configService->start();
-
-
-  BLEService *vehicleCatalogService = bleServer->createService(generateUUID(BLE_SERVICE_VEHICLE_CATALOG), 128U);
-
-  // BLECharacteristic *configDeviceName = configService->createCharacteristic(
-  //   BLEUUID((uint16_t) 0x2A00),
-  //   BLECharacteristic::PROPERTY_READ |
-  //   BLECharacteristic::PROPERTY_WRITE
-  // );
-  // configDeviceName->setValue("Test");
-  // configDeviceName->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-
-  for (const auto& entry : vehicleCatalog)
-  {
-    BLECharacteristic *characteristic = vehicleCatalogService->createCharacteristic(
-      // BLEUUID(entry.id),
-      generateUUID(BLE_CHARACTERISTIC_SUPPORTED_VEHICLE, entry.id),
-      BLECharacteristic::PROPERTY_READ
-    );
-    characteristic->setValue(entry.name);
-    // characteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-  }
-  
-  vehicleCatalogService->start();
-
-  BLESecurity *security = new BLESecurity();
-
-  // security->setStaticPIN(123456);
-  // security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
-  // security->setCapability(ESP_IO_CAP_OUT);
-  
-  // BLEDevice::startAdvertising();
-  // bleAdvertising = true;
 
   selectVehicle(vehicleCatalog[0]);
 }
@@ -182,18 +128,8 @@ void loop()
     currentVehicle->update();
 
     uint32_t now = millis();
-    if (!bleAdvertising && !bleDeviceConnected && currentVehicle->awake->value && now - lastDisconnectMillis >= ADVERTISE_DELAY) {
-      BLEDevice::startAdvertising();
-      bleAdvertising = true;
-      Logger.log(Info, "ble", "Started advertising");
 
-    } else if (bleAdvertising && !currentVehicle->awake->value) {
-      BLEDevice::stopAdvertising();
-      bleAdvertising = false;
-      Logger.log(Info, "ble", "Stopped advertising");
-    }
-
-    if (now - lastSendMillis >= SEND_INTERVAL && bleDeviceConnected) {
+    if (now - lastSendMillis >= SEND_INTERVAL && GlobalBluetoothManager.getDeviceConnected()) {
       currentVehicle->sendUpdatedMetrics(lastSendMillis);
       lastSendMillis = now;
     }

@@ -1,4 +1,4 @@
-#include "global_config.h"
+#include "config.h"
 
 #define RW_MODE false
 #define RO_MODE true

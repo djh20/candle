@@ -57,5 +57,8 @@
     "unordered_set": "cpp",
     "fstream": "cpp",
     "iomanip": "cpp"
+  },
+  "[cpp]": {
+    "editor.tabSize": 2
   }
 }
