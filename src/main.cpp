@@ -27,22 +27,6 @@ void setup()
   Config::begin();
   VehicleManager::begin();
   Bluetooth::begin();
-
-  // Config.load("config");
-
-  // Bluetooth::init();
-
-  // uint16_t vehicleId = Config.getVehicleId();
-
-  // for (const VehicleEntry& entry : vehicleCatalog)
-  // {
-  //   if (entry.id == vehicleId) 
-  //   {
-  //     selectVehicle(vehicleId);
-  //     break;
-  //   }
-  // }
-  // CurrentVehicle
 }
 
 void loop() 
