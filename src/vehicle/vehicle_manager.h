@@ -1,12 +1,11 @@
 #pragma once
 
-class VehicleManager 
+#include "vehicle.h"
+
+namespace VehicleManager
 {
-  public:
-    VehicleManager();
+  void begin();
+  void loop();
 
-    void begin();
-    void loop();
-};
-
-extern VehicleManager GlobalVehicleManager;
+  Vehicle* getVehicle();
+}

@@ -1,6 +1,8 @@
 #pragma once
 
 #include <Arduino.h>
+#include <BLECharacteristic.h>
+#include <BLEDescriptor.h>
 
 // Generic Metrics
 #define METRIC_AWAKE 0x8B51
@@ -75,15 +77,17 @@ class Metric
     void onUpdate(std::function<void()> handler);
     virtual void setValueFromRawData(uint8_t *data);
     virtual void setValueFromString(String str);
+    virtual uint8_t getDataSize();
     virtual void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
     virtual void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
-    virtual uint8_t getValueDataLength();
     
     bool initialized = false;
     uint16_t id;
     uint32_t lastUpdateMillis = 0;
     Unit unit;
     std::function<void()> updateHandler;
+    // BLECharacteristic *bleCharacteristic;
+    // BLEDescriptor *bleDescriptor;
 };
 
 class MetricInt: public Metric 
@@ -94,9 +98,9 @@ class MetricInt: public Metric
     void setValue(int32_t newValue);
     void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
+    uint8_t getDataSize();
     void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
     void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
-    uint8_t getValueDataLength();
 
     int32_t value = 0;
 };
@@ -109,9 +113,9 @@ class MetricFloat: public Metric
     void setValue(float newValue);
     void setValueFromRawData(uint8_t *data);
     void setValueFromString(String str);
+    uint8_t getDataSize();
     void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
     void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
-    uint8_t getValueDataLength();
  
     float value = 0;
     Precision precision;

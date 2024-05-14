@@ -1,4 +1,5 @@
 #include "poll_task.h"
+#include "../../utils/logger.h"
 
 PollTask::PollTask(CanBus *bus, uint32_t interval, uint32_t timeout, uint32_t requestId, uint32_t responseId, uint8_t responseFrames, uint8_t *query)
 {
@@ -17,7 +18,7 @@ void PollTask::run()
   bufferIndex = 0;
   lastRunMillis = millis();
   if (bus->initialized) {
-    log_d("Sending query %X %X %X %X %X %X %X %X", query[0], query[1], query[2], query[3], query[4], query[5], query[6], query[7]);
+    Logger.log(Debug, "task", "Sending query %X %X %X %X %X %X %X %X", query[0], query[1], query[2], query[3], query[4], query[5], query[6], query[7]);
     bus->mcp->sendMsgBuf(requestId, 8, query);
     
   } else {
@@ -42,8 +43,10 @@ bool PollTask::processFrame(uint8_t *frameData)
   {
     buffer[bufferIndex][i] = frameData[i];
   }
-  
-  log_d(
+
+  Logger.log(
+    Debug,
+    "task",
     "Response (%u): %X %X %X %X %X %X %X %X",
     bufferIndex, frameData[0], frameData[1], frameData[2], frameData[3], frameData[4], frameData[5], frameData[6], frameData[7]
   );

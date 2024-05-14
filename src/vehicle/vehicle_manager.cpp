@@ -1,30 +1,36 @@
 #include "vehicle_manager.h"
-#include <BLEService.h>
-#include "../ble/bluetooth_manager.h"
-#include "../ble/uuid.h"
 #include "vehicle_catalog.h"
+#include "../config.h"
 
-VehicleManager::VehicleManager() {}
+static Vehicle* vehicle;
 
 void VehicleManager::begin()
 {
-  BLEService *vehicleCatalogService = GlobalBluetoothManager.server->createService(generateUUID(BLE_SERVICE_VEHICLE_CATALOG), 128U);
+  uint16_t vehicleId = Config::getVehicleId();
 
-  for (const auto& entry : vehicleCatalog)
+  log_i("Searching for vehicle entry with ID: %04X", vehicleId);
+
+  for (const VehicleEntry& entry : vehicleCatalog)
   {
-    BLECharacteristic *characteristic = vehicleCatalogService->createCharacteristic(
-      generateUUID(BLE_CHARACTERISTIC_SUPPORTED_VEHICLE, entry.id),
-      BLECharacteristic::PROPERTY_READ
-    );
-    characteristic->setValue(entry.name);
+    if (entry.id == vehicleId)
+    {
+      log_i("Instantiating vehicle: %s", entry.name);
+      vehicle = entry.createVehicle();
+      vehicle->begin();
+      break;
+    }
   }
-  
-  vehicleCatalogService->start();
 }
 
 void VehicleManager::loop()
 {
-
+  if (vehicle)
+  {
+    vehicle->loop();
+  }
 }
 
-VehicleManager GlobalVehicleManager;
+Vehicle* VehicleManager::getVehicle()
+{
+  return vehicle;
+}

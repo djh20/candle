@@ -1,4 +1,5 @@
 #include "metric.h"
+#include <BLE2902.h>
 
 Metric::Metric(uint16_t id, Unit unit) 
 {
@@ -13,9 +14,9 @@ void Metric::onUpdate(std::function<void()> handler)
 
 void Metric::setValueFromRawData(uint8_t *data) {}
 void Metric::setValueFromString(String str) {}
+uint8_t Metric::getDataSize() { return 0; }
 void Metric::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex) {}
 void Metric::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {}
-uint8_t Metric::getValueDataLength() { return 0; }
 
 MetricInt::MetricInt(uint16_t id, Unit unit) : Metric(id, unit) {}
 
@@ -39,6 +40,10 @@ void MetricInt::setValueFromString(String str) {
   setValue(str.toInt());
 }
 
+uint8_t MetricInt::getDataSize() {
+  return 5;
+}
+
 void MetricInt::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex) {
   buffer[bufferIndex++] = id >> 8;
   buffer[bufferIndex++] = id;
@@ -53,10 +58,6 @@ void MetricInt::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {
   buffer[bufferIndex++] = value >> 16;
   buffer[bufferIndex++] = value >> 8;
   buffer[bufferIndex++] = value;
-}
-
-uint8_t MetricInt::getValueDataLength() {
-  return 5;
 }
 
 MetricFloat::MetricFloat(uint16_t id, Unit unit, Precision precision) : Metric(id, unit) 
@@ -85,6 +86,10 @@ void MetricFloat::setValueFromString(String str) {
   setValue(str.toFloat());
 }
 
+uint8_t MetricFloat::getDataSize() {
+  return 5;
+}
+
 void MetricFloat::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex) {
   buffer[bufferIndex++] = id >> 8;
   buffer[bufferIndex++] = id;
@@ -101,8 +106,4 @@ void MetricFloat::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {
   buffer[bufferIndex++] = convertedValue >> 16;
   buffer[bufferIndex++] = convertedValue >> 8;
   buffer[bufferIndex++] = convertedValue;
-}
-
-uint8_t MetricFloat::getValueDataLength() {
-  return 5;
 }

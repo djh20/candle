@@ -2,11 +2,7 @@
 
 #include <Arduino.h>
 #include "can/can_bus.h"
-
-#define WH_PER_GID 80
-#define KM_PER_KWH 6.2
-#define NOMINAL_PACK_VOLTAGE 360
-#define MAX_SOC_PERCENT 95
+#include "../utils/logger.h"
 
 VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() {}
 
@@ -44,6 +40,18 @@ void VehicleNissanLeaf::registerAll()
 
   //registerTask(sohTask = new PollTask(mainBus, 60000, 500, 0x79B, 0x7BB, 1, sohQuery));
   //registerTask(vcmChargeTask = new PollTask(mainBus, 1000, 500, 0x797, 0x79A, 1, vcmChargeQuery));
+  
+  /*
+  registerGps(
+    new Gps(
+      GPIO_NUM_14,
+      new MetricFloat("gps_lat", 0),
+      new MetricFloat("gps_lng", 0),
+      new MetricInt("gps_lock", 0),
+      new MetricFloat("gps_distance", 0)
+    )
+  );
+  */
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData)
@@ -168,6 +176,14 @@ void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t
   {
     slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
   }
+  
+  /*
+  else if (task == sohTask)
+  {
+    soh->setValue(((frames[0][6] << 8 ) | frames[0][7] ) / 100.0);
+  }
+  */
+  
 }
 
 void VehicleNissanLeaf::updateExtraMetrics()
@@ -220,33 +236,45 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
       chargeStatus->setValue(2);
     }
   }
-}
+  /*
+  else if (metric == pluggedIn)
+  {
+    if (pluggedIn->value)
+    {
+      if (gps) gps->resetDistance();
+    }
+  }
+  
+  if (metric == pluggedIn || metric == powerOutput)
+  {
+    // Charge Status
+    if (pluggedIn->value)
+    {
+      if (powerOutput->value <= -1)
+      {
+        chargeStatus->setValue(1);
+      }
+      else if (powerOutput->value >= 0 && chargeStatus->value == 1)
+      {
+        chargeStatus->setValue(2);
+      }
+    }
+    else
+    {
+      chargeStatus->setValue(0);
+    }
+  }
 
-void VehicleNissanLeaf::testCycle()
-{
-  awake->setValue(1);
-  gear->setValue(3);
-  soc->setValue(85.5);
-  range->setValue(104);
-  batteryTemp->setValue(43.5);
-  batteryCapacity->setValue(27);
-  soh->setValue(87.3);
-
-  parkBrake->setValue(!parkBrake->value);
-  headlights->setValue(!headlights->value);
-
-  float speedValue = speed->value;
-  speedValue += 5;
-  if (speedValue > 100) speedValue = 0;
-  speed->setValue(speedValue);
-
-  float powerValue = batteryPower->value;
-  powerValue += 5;
-  if (powerValue > 80) powerValue = 0;
-  batteryPower->setValue(powerValue);
-
-  float steeringValue = steeringAngle->value;
-  steeringValue += 0.2;
-  if (steeringValue > 1) steeringValue = -1;
-  steeringAngle->setValue(steeringValue);
+  if (metric == pluggedIn || metric == gear)
+  {
+    if (pluggedIn->value)
+    {
+      rangeAtLastCharge->reset();
+    }
+    else if (gear->value > 1 && rangeAtLastCharge->value == 0)
+    {
+      rangeAtLastCharge->setValue(range->value);
+    }
+  }
+  */
 }

@@ -1,74 +1,33 @@
 #include "vehicle.h"
 #include <Arduino.h>
-#include "../utils/logger.h"
-#include "metric/command_callbacks.h"
-#include <BLE2902.h>
+
+#define TEST_CYCLE_INTERVAL 500U
 
 Vehicle::Vehicle() {}
 
-void Vehicle::init(BLEServer *bleServer)
+void Vehicle::begin()
 {
-  this->bleServer = bleServer;
-  bleService = bleServer->createService(generateUUID(BLE_SERVICE_METRICS), 128U, 0);
-
-  BLECharacteristic *commandCharacteristic = new BLECharacteristic(
-    generateUUID(BLE_CHARACTERISTIC_METRIC_MUTATOR),
-    //BLECharacteristic::PROPERTY_READ |
-    BLECharacteristic::PROPERTY_WRITE
-  );
-  // commandCharacteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-  commandCharacteristic->setCallbacks(new CommandCallbacks(this));
-
-  bleService->addCharacteristic(commandCharacteristic);
-
   registerMetric(awake = new MetricInt(METRIC_AWAKE, Unit::None));
   registerMetric(tripDistance = new MetricFloat(METRIC_TRIP_DISTANCE, Unit::Kilometers, Precision::High));
 
   registerAll();
-  
-  for (uint8_t i = 0; i < totalMetrics;) {
-    BLECharacteristic *characteristic = new BLECharacteristic(
-      generateUUID(BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalMetricCharacteristics),
-      BLECharacteristic::PROPERTY_READ |
-      BLECharacteristic::PROPERTY_NOTIFY
-    );
-    // characteristic->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
+}
 
-    uint8_t characteristicValueIndex = 0;
+void Vehicle::loop()
+{
+  handleTasks();
+  processBusData();
 
-    BLEDescriptor *descriptor = new BLEDescriptor(
-      generateUUID(BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
-      BLE_LEN_GROUPED_METRIC_INFO
-    );
-    // descriptor->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-    uint8_t descriptorBuffer[BLE_LEN_GROUPED_METRIC_INFO];
-    uint8_t descriptorBufferSize = 0;
-  
-    for (; i < totalMetrics; i++) {
-      Metric *metric = metrics[i];
-
-      // TODO: Somehow get data size without explicitly writing method for it.
-      uint8_t characteristicValueSize = characteristicValueIndex + metric->getDataSize();
-
-      if (characteristicValueSize > BLE_LEN_GROUPED_METRIC_DATA)
-        break;
-
-      metric->getDescriptorData(descriptorBuffer, descriptorBufferSize, characteristicValueIndex);
-      characteristicValueIndex = characteristicValueSize;
-    }
-
-    descriptor->setValue(descriptorBuffer, descriptorBufferSize);
-
-    characteristic->addDescriptor(descriptor);
-
-    BLEDescriptor *notifyDescriptor = new BLE2902();
-    // notifyDescriptor->setAccessPermissions(ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED);
-    characteristic->addDescriptor(notifyDescriptor);
-
-    registerCharacteristic(characteristic);
+  #ifdef TEST_MODE
+  uint32_t now = millis();
+  if (now - lastTestCycleMillis >= TEST_CYCLE_INTERVAL)
+  {
+    testCycle();
+    lastTestCycleMillis = now;
   }
+  #endif
 
-  bleService->start();
+  updateExtraMetrics();
 }
 
 void Vehicle::registerBus(CanBus *bus)
@@ -77,49 +36,33 @@ void Vehicle::registerBus(CanBus *bus)
   bus->init();
 
   if (!bus->initialized) {
-    Logger.log(Error, "vehicle", "Failed to register bus %u", id);
+    log_e("Failed to register bus %u", id);
     return;
   }
 
   busses[totalBusses++] = bus;
-  Logger.log(Info, "vehicle", "Registered bus %u", id);
+  log_i("Registered bus %u", id);
 }
 
 void Vehicle::registerMetric(Metric *metric) 
 {
   metrics[totalMetrics++] = metric;
-
-  //bleService->addCharacteristic(metric->bleCharacteristic);
   
   metric->onUpdate([this, metric]() {
     metricUpdated(metric);
   });
 
-  Logger.log(Info, "vehicle", "Registered metric %04X", metric->id);
+  log_i("Registered metric %04X", metric->id);
 }
 
 void Vehicle::registerTask(PollTask *task)
 {
   uint8_t id = totalTasks;
   tasks[totalTasks++] = task;
-  Logger.log(Info, "vehicle", "Registered task %u", id);
+  log_i("Registered task %u", id);
 }
 
-void Vehicle::registerCharacteristic(BLECharacteristic *characteristic) {
-  metricCharacteristics[totalMetricCharacteristics++] = characteristic;
-  bleService->addCharacteristic(characteristic);
-
-  Logger.log(Info, "vehicle", "Registered characteristic %s", characteristic->getUUID().toString().c_str());
-}
-
-void Vehicle::update()
-{
-  handleTasks();
-  readAndProcessBusData();
-  updateExtraMetrics();
-}
-
-void Vehicle::readAndProcessBusData()
+void Vehicle::processBusData()
 {
   for (uint8_t busIndex = 0; busIndex < totalBusses; busIndex++) 
   {
@@ -138,41 +81,13 @@ void Vehicle::readAndProcessBusData()
           bool taskCompleted = currentTask->processFrame(bus->frameData);
           if (taskCompleted)
           {
-            Logger.log(Debug, "vehicle", "Task %u completed", currentTaskIndex);
+            log_d("Task %u completed", currentTaskIndex);
             processPollResponse(bus, currentTask, currentTask->buffer);
           }
         }
       }
       else break;
     }
-  }
-}
-
-void Vehicle::sendUpdatedMetrics(uint32_t sinceMillis)
-{
-  uint8_t characteristicIndex = 0;
-
-  for (uint8_t i = 0; i < totalMetrics;) {
-    BLECharacteristic *characteristic = metricCharacteristics[characteristicIndex];
-    uint8_t characteristicValueIndex = 0;
-    bool updated = false;
-
-    for (; i < totalMetrics; i++) {
-      Metric *metric = metrics[i];
-      uint8_t characteristicValueSize = characteristicValueIndex + metric->getDataSize();
-
-      if (characteristicValueSize > BLE_LEN_GROUPED_METRIC_DATA)
-        break;
-      
-      metric->getValueData(characteristicValueBuffer, characteristicValueIndex);
-      if (metric->lastUpdateMillis >= sinceMillis) updated = true;
-    }
-    
-    if (updated) {
-      characteristic->setValue(characteristicValueBuffer, characteristicValueIndex);
-      characteristic->notify();
-    }
-    characteristicIndex++;
   }
 }
 
@@ -217,3 +132,4 @@ void Vehicle::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *fra
 void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}
+void Vehicle::testCycle() {}
