@@ -31,7 +31,7 @@ void BluetoothMetrics::begin()
   {
     // Create characteristic for grouped metric data.
     BLECharacteristic *characteristic = new BLECharacteristic(
-      Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA), // TODO: Add discriminator
+      Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalCharacteristics),
       BLECharacteristic::PROPERTY_READ |
       BLECharacteristic::PROPERTY_NOTIFY
     );
