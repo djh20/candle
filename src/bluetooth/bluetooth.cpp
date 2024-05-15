@@ -1,6 +1,7 @@
 #include "bluetooth.h"
 #include "../config.h"
 #include "bluetooth_device_info.h"
+#include "bluetooth_ota.h"
 #include "bluetooth_config.h"
 #include "bluetooth_vehicle.h"
 #include <BLEDevice.h>
@@ -56,6 +57,7 @@ void Bluetooth::begin()
   }
 
   BluetoothDeviceInfo::begin();
+  BluetoothOTA::begin();
   BluetoothConfig::begin();
   BluetoothVehicle::begin();
 }
