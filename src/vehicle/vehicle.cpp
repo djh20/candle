@@ -36,7 +36,7 @@ void Vehicle::registerBus(CanBus *bus)
   bus->init();
 
   if (!bus->initialized) {
-    log_e("Failed to register bus %u", id);
+    log_e("Failed to initialize bus %u", id);
     return;
   }
 
