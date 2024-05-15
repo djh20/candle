@@ -1,4 +1,4 @@
-#include "bluetooth_metrics.h"
+#include "bluetooth_vehicle.h"
 #include "bluetooth.h"
 #include "../vehicle/vehicle_manager.h"
 #include <BLEService.h>
@@ -12,7 +12,7 @@ static uint8_t totalCharacteristics = 0;
 static uint8_t characteristicValueBuffer[BLE_LEN_GROUPED_METRIC_DATA];
 static uint32_t lastUpdateMillis = 0;
 
-void BluetoothMetrics::begin()
+void BluetoothVehicle::begin()
 {
   vehicle = VehicleManager::getVehicle();
   if (!vehicle)
@@ -22,10 +22,9 @@ void BluetoothMetrics::begin()
   }
 
   // Create bluetooth service for metrics.
-  BLEService *service = Bluetooth::getServer()->createService(
+  BLEService *metricsService = Bluetooth::getServer()->createService(
     Bluetooth::uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
   );
-
 
   for (uint8_t i = 0; i < vehicle->totalMetrics;)
   {
@@ -71,16 +70,18 @@ void BluetoothMetrics::begin()
     notifyDescriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
     characteristic->addDescriptor(notifyDescriptor);
 
-    service->addCharacteristic(characteristic);
+    metricsService->addCharacteristic(characteristic);
     characteristics[totalCharacteristics++] = characteristic;
   }
 
-  service->start();
+  metricsService->start();
 }
 
-void BluetoothMetrics::loop()
+void BluetoothVehicle::loop()
 {
   if (!vehicle) return;
+
+  Bluetooth::setCanAdvertise(vehicle->awake->value);
 
   uint32_t now = millis();
   

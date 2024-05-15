@@ -2,7 +2,7 @@
 #include "../config.h"
 #include "bluetooth_device_info.h"
 #include "bluetooth_config.h"
-#include "bluetooth_metrics.h"
+#include "bluetooth_vehicle.h"
 #include <BLEDevice.h>
 
 #define ADVERTISE_DELAY 500U
@@ -57,11 +57,13 @@ void Bluetooth::begin()
 
   BluetoothDeviceInfo::begin();
   BluetoothConfig::begin();
-  BluetoothMetrics::begin();
+  BluetoothVehicle::begin();
 }
 
 void Bluetooth::loop()
 {
+  BluetoothVehicle::loop();
+  
   uint32_t now = millis();
   if (!advertising && !clientConnected && canAdvertise && now - lastDisconnectMillis >= ADVERTISE_DELAY)
   {
@@ -75,8 +77,6 @@ void Bluetooth::loop()
     advertising = false;
     log_i("Stopped bluetooth advertising");
   }
-
-  BluetoothMetrics::loop();
 }
 
 void Bluetooth::setCanAdvertise(bool value)

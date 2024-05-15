@@ -1,6 +1,6 @@
 #pragma once
 
-namespace BluetoothMetrics
+namespace BluetoothVehicle
 {
   void begin();
   void loop();
