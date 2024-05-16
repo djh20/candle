@@ -17,7 +17,9 @@ static char hashStr[ESP_ROM_MD5_DIGEST_LEN * 2 + 1];
 
 static uint8_t responseData[2] = {0xFF, 0x00};
 static BLECharacteristic *commandCharacteristic;
+static BLECharacteristic *dataCharacteristic;
 static bool updateFinished = false;
+static float updateProgressPercent;
 static uint32_t updateFinishMillis = 0;
 static esp_ota_img_states_t partitionState = ESP_OTA_IMG_INVALID;
 
@@ -27,9 +29,16 @@ extern "C" bool verifyRollbackLater() {
   return true;
 }
 
-class CommandCallbacks: public BLECharacteristicCallbacks {
+class CharacteristicCallbacks: public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *pCharacteristic) {
-    BluetoothOTA::processCommand(pCharacteristic->getData(), pCharacteristic->getLength());
+    if (pCharacteristic == commandCharacteristic)
+    {
+      BluetoothOTA::processCommand(pCharacteristic->getData(), pCharacteristic->getLength());
+    }
+    else if (pCharacteristic == dataCharacteristic)
+    {
+      BluetoothOTA::writeFirmware(pCharacteristic->getData(), pCharacteristic->getLength());
+    }
   }
 };
 
@@ -58,11 +67,20 @@ void BluetoothOTA::begin()
 
   // TODO: Maybe OTA should only be available once a pin has been set.
   commandCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
-  commandCharacteristic->setCallbacks(new CommandCallbacks());
+  commandCharacteristic->setCallbacks(new CharacteristicCallbacks());
 
   BLEDescriptor *notifyDescriptor = new BLE2902();
   notifyDescriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
   commandCharacteristic->addDescriptor(notifyDescriptor);
+
+  dataCharacteristic = service->createCharacteristic(
+    Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
+    BLECharacteristic::PROPERTY_WRITE |
+    BLECharacteristic::PROPERTY_INDICATE
+  );
+
+  dataCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
+  dataCharacteristic->setCallbacks(new CharacteristicCallbacks());
 
   service->start();
 }
@@ -115,19 +133,19 @@ void BluetoothOTA::processCommand(uint8_t *data, size_t length)
       sendResponse(STATUS_CODE_ERROR);
     }
   }
-  else if (id == 0x02 && length >= 2) 
-  {
-    if (Update.write(data+1, length-1) > 0)
-    {
-      sendResponse(STATUS_CODE_SUCCESS);
-    }
-    else
-    {
-      log_e("Failed to write OTA data");
-      sendResponse(STATUS_CODE_ERROR);
-    }
-  }
-  else if (id == 0x03 && length == 1)
+  // else if (id == 0x02 && length >= 2) 
+  // {
+  //   if (Update.write(data+1, length-1) > 0)
+  //   {
+  //     sendResponse(STATUS_CODE_SUCCESS);
+  //   }
+  //   else
+  //   {
+  //     log_e("Failed to write OTA data");
+  //     sendResponse(STATUS_CODE_ERROR);
+  //   }
+  // }
+  else if (id == 0x02 && length == 1)
   {
     if(Update.end())
     {
@@ -146,6 +164,21 @@ void BluetoothOTA::processCommand(uint8_t *data, size_t length)
   {
     log_e("Invalid command received");
     sendResponse(STATUS_CODE_ERROR);
+  }
+}
+
+void BluetoothOTA::writeFirmware(uint8_t *data, size_t length)
+{
+  if (length == 0) return;
+
+  if (Update.write(data, length) > 0)
+  {
+    updateProgressPercent = (Update.progress() / (float)Update.size()) * 100;
+    log_i("Firmware update progress: %.2f%% (%zu / %zu bytes)", updateProgressPercent, Update.progress(), Update.size());
+  }
+  else
+  {
+    log_e("Failed to write OTA data");
   }
 }
 

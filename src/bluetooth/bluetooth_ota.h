@@ -8,4 +8,5 @@ namespace BluetoothOTA
   void loop();
   
   void processCommand(uint8_t *data, size_t length);
+  void writeFirmware(uint8_t *data, size_t length);
 }
