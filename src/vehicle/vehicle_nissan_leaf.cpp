@@ -12,7 +12,7 @@ VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() {}
 
 void VehicleNissanLeaf::registerAll()
 {
-  registerBus(mainBus = new CanBus(GPIO_NUM_2, GPIO_NUM_4, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
+  registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
 
   registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None));
   registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium));

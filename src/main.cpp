@@ -1,3 +1,7 @@
+#ifndef FIRMWARE_VERSION
+#define FIRMWARE_VERSION "unknown"
+#endif
+
 #include <Arduino.h>
 #include "config.h"
 #include "vehicle/vehicle_manager.h"
