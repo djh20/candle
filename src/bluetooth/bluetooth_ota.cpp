@@ -1,6 +1,7 @@
 #include "bluetooth_ota.h"
 #include "bluetooth.h"
 #include <BLEService.h>
+#include <BLE2902.h>
 #include <Update.h>
 #include <esp_ota_ops.h>
 
@@ -36,6 +37,7 @@ static void sendResponse(uint8_t statusCode)
 {
   responseData[1] = statusCode;
   commandCharacteristic->setValue(responseData, sizeof(responseData));
+  commandCharacteristic->notify();
 }
 
 void BluetoothOTA::begin()
@@ -57,6 +59,10 @@ void BluetoothOTA::begin()
   // TODO: Maybe OTA should only be available once a pin has been set.
   commandCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
   commandCharacteristic->setCallbacks(new CommandCallbacks());
+
+  BLEDescriptor *notifyDescriptor = new BLE2902();
+  notifyDescriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
+  commandCharacteristic->addDescriptor(notifyDescriptor);
 
   service->start();
 }
@@ -149,6 +155,7 @@ void BluetoothOTA::loop()
 
   if (partitionState == ESP_OTA_IMG_PENDING_VERIFY && now >= VERIFY_DELAY)
   {
+    log_i("Verified app partition");
     esp_ota_mark_app_valid_cancel_rollback();
     partitionState = ESP_OTA_IMG_VALID;
   }
