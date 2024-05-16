@@ -64,6 +64,7 @@ void Bluetooth::begin()
 
 void Bluetooth::loop()
 {
+  BluetoothOTA::loop();
   BluetoothVehicle::loop();
   
   uint32_t now = millis();
