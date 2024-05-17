@@ -81,7 +81,7 @@ void BluetoothVehicle::loop()
 {
   if (!vehicle) return;
 
-  Bluetooth::setCanAdvertise(vehicle->awake->value);
+  Bluetooth::setCanAdvertise(!vehicle->awake->initialized || vehicle->awake->value);
 
   uint32_t now = millis();
   
