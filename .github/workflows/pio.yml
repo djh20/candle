@@ -64,7 +64,7 @@ jobs:
         run: pio run -e ${{ matrix.environment }}
 
       - name: Generate Firmware Name
-        if: env.CREATE_ARTIFACT
+        if: env.CREATE_ARTIFACT == 'true'
         run: echo "FIRMWARE_NAME=candle_${{ env.FIRMWARE_VERSION }}_${{ matrix.environment }}" >> "$GITHUB_ENV"
 
       - name: Move Firmware
