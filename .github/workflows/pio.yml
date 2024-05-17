@@ -68,18 +68,18 @@ jobs:
         run: echo "FIRMWARE_NAME=candle_${{ env.FIRMWARE_VERSION }}_${{ matrix.environment }}" >> "$GITHUB_ENV"
 
       - name: Move Firmware
-        if: env.CREATE_ARTIFACT
+        if: env.CREATE_ARTIFACT == 'true'
         run: |
           mkdir ./dist
           mv ./.pio/build/${{ matrix.environment }}/firmware.bin ./dist/${{ env.FIRMWARE_NAME }}.bin
         
       - name: Generate Firmware Checksum
-        if: env.CREATE_ARTIFACT
+        if: env.CREATE_ARTIFACT == 'true'
         working-directory: ./dist
         run: md5sum -b ${{ env.FIRMWARE_NAME }}.bin | awk '{ printf $1 }' >> ${{ env.FIRMWARE_NAME }}.md5
       
       - uses: actions/upload-artifact@v4
-        if: env.CREATE_ARTIFACT
+        if: env.CREATE_ARTIFACT == 'true'
         with:
           name: firmware-${{ matrix.environment }}
           path: ./dist/*
@@ -88,7 +88,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     needs: [get_default_envs, build]
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    if: github.ref_name == '*.*.*'
     steps:
       - uses: actions/download-artifact@v4
         with:
