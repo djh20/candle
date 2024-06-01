@@ -1,10 +1,14 @@
 name: PlatformIO CI
 
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - '*.*.*'
+  workflow_dispatch:
+  pull_request:
 
 env:
   FIRMWARE_VERSION: ${{ github.ref_name }}
-  IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
   get_default_envs:
@@ -64,22 +68,18 @@ jobs:
         run: pio run -e ${{ matrix.environment }}
 
       - name: Generate Firmware Name
-        if: env.IS_RELEASE == 'true'
         run: echo "FIRMWARE_NAME=candle_${{ env.FIRMWARE_VERSION }}_${{ matrix.environment }}" >> "$GITHUB_ENV"
 
       - name: Move Firmware
-        if: env.IS_RELEASE == 'true'
         run: |
           mkdir ./dist
           mv ./.pio/build/${{ matrix.environment }}/firmware.bin ./dist/${{ env.FIRMWARE_NAME }}.bin
         
       - name: Generate Firmware Checksum
-        if: env.IS_RELEASE == 'true'
         working-directory: ./dist
         run: md5sum -b ${{ env.FIRMWARE_NAME }}.bin | awk '{ printf $1 }' >> ${{ env.FIRMWARE_NAME }}.md5
       
       - uses: actions/upload-artifact@v4
-        if: env.IS_RELEASE == 'true'
         with:
           name: firmware-${{ matrix.environment }}
           path: ./dist/*
@@ -99,10 +99,10 @@ jobs:
       
       - name: Create Release Draft
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           draft: true
           generate_release_notes: true
           files: |
             ./dist/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
