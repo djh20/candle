@@ -62,6 +62,7 @@ void BluetoothOTA::begin()
     Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE |
+    BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_NOTIFY
   );
 
@@ -76,6 +77,7 @@ void BluetoothOTA::begin()
   dataCharacteristic = service->createCharacteristic(
     Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
     BLECharacteristic::PROPERTY_WRITE |
+    BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_INDICATE
   );
 
