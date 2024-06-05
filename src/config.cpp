@@ -7,15 +7,9 @@
 #define CONFIG_ID "config"
 
 #define CONFIG_KEY_VEHICLE_ID "vehicle_id"
+#define CONFIG_KEY_DEVICE_NAME "device_name"
 #define CONFIG_KEY_BLUETOOTH_MODE "bluetooth_mode"
-#define CONFIG_KEY_BLUETOOTH_NAME "bluetooth_name"
 #define CONFIG_KEY_BLUETOOTH_PIN "bluetooth_pin"
-
-static Preferences prefs;
-static uint16_t vehicleId;
-static uint8_t bluetoothMode;
-static char bluetoothName[BLE_NAME_MAX_LEN] = "CANDLE-";
-static uint32_t bluetoothPin;
 
 void Config::begin()
 {
@@ -25,8 +19,8 @@ void Config::begin()
 
   bluetoothMode = prefs.getUChar(CONFIG_KEY_BLUETOOTH_MODE);
 
-  // If no bluetooth name is stored, generate a unique name based on esp mac address.
-  if (!prefs.isKey(CONFIG_KEY_BLUETOOTH_NAME))
+  // If no device name is stored, generate a unique name based on esp mac address.
+  if (!prefs.isKey(CONFIG_KEY_DEVICE_NAME))
   {
     uint8_t mac[8];
     esp_efuse_mac_get_default(mac); // Read MAC address from eFuse.
@@ -36,18 +30,18 @@ void Config::begin()
     // Letter characters from 65 to 90.
 
     // Calculate letters using 5th byte of MAC address.
-    bluetoothName[7] = ((mac[4] >> 4) & 0x0F) + 65;
-    bluetoothName[8] = (mac[4] & 0x0F) + 65;
+    deviceName[7] = ((mac[4] >> 4) & 0x0F) + 65;
+    deviceName[8] = (mac[4] & 0x0F) + 65;
 
     // Calculate numbers using 6th byte of MAC address.
-    bluetoothName[9] = ((mac[5] >> 3) & 0x07) + 48;
-    bluetoothName[10] = (mac[5] & 0x07) + 48;
+    deviceName[9] = ((mac[5] >> 3) & 0x07) + 48;
+    deviceName[10] = (mac[5] & 0x07) + 48;
 
-    log_i("Generated bluetooth display name: %s", bluetoothName);
+    log_i("Generated device name: %s", deviceName);
   }
   else
   {
-    prefs.getString(CONFIG_KEY_BLUETOOTH_NAME, bluetoothName, BLE_NAME_MAX_LEN);
+    prefs.getString(CONFIG_KEY_DEVICE_NAME, deviceName, CONFIG_DEVICE_NAME_MAX_LEN);
   }
 
   bluetoothPin = prefs.getUInt(CONFIG_KEY_BLUETOOTH_PIN);
@@ -68,16 +62,16 @@ uint8_t Config::getBluetoothMode()
   return bluetoothMode;
 }
 
-void Config::writeBluetoothName(const char *name)
+void Config::writeDeviceName(const char *name)
 {
   prefs.begin(CONFIG_ID, RW_MODE);
-  prefs.putString(CONFIG_KEY_BLUETOOTH_NAME, name);
+  prefs.putString(CONFIG_KEY_DEVICE_NAME, name);
   prefs.end();
 }
 
-char *Config::getBluetoothName() 
+char *Config::getDeviceName() 
 {
-  return bluetoothName;
+  return deviceName;
 }
 
 void Config::writeBluetoothPin(uint32_t pin)
@@ -103,3 +97,5 @@ uint16_t Config::getVehicleId()
 {
   return vehicleId;
 }
+
+Config GlobalConfig;

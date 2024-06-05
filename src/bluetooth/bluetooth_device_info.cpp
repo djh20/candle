@@ -4,23 +4,25 @@
 
 void BluetoothDeviceInfo::begin()
 {
-  BLEService *deviceInfoService = Bluetooth::getServer()->createService(
-    Bluetooth::uuid(UUID_STANDARD, BLE_STD_SERVICE_DEVICE_INFO)
+  BLEService *deviceInfoService = GlobalBluetooth.getServer()->createService(
+    GlobalBluetooth.uuid(UUID_STANDARD, BLE_STD_SERVICE_DEVICE_INFO)
   );
   
   BLECharacteristic *hardwareModelCharacteristic = deviceInfoService->createCharacteristic(
-    Bluetooth::uuid(UUID_STANDARD, BLE_STD_CHARACTERISTIC_MODEL_NUMBER),
+    GlobalBluetooth.uuid(UUID_STANDARD, BLE_STD_CHARACTERISTIC_MODEL_NUMBER),
     BLECharacteristic::PROPERTY_READ
   );
   hardwareModelCharacteristic->setValue(HARDWARE_MODEL);
-  hardwareModelCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
+  hardwareModelCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
 
   BLECharacteristic *firmwareVersionCharacteristic = deviceInfoService->createCharacteristic(
-    Bluetooth::uuid(UUID_STANDARD, BLE_STD_CHARACTERISTIC_FIRMWARE_VERSION),
+    GlobalBluetooth.uuid(UUID_STANDARD, BLE_STD_CHARACTERISTIC_FIRMWARE_VERSION),
     BLECharacteristic::PROPERTY_READ
   );
   firmwareVersionCharacteristic->setValue(FIRMWARE_VERSION);
-  firmwareVersionCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
+  firmwareVersionCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
 
   deviceInfoService->start();
 }
+
+BluetoothDeviceInfo GlobalBluetoothDeviceInfo;

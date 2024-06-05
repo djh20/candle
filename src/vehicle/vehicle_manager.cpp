@@ -2,11 +2,9 @@
 #include "vehicle_catalog.h"
 #include "../config.h"
 
-static Vehicle* vehicle;
-
 void VehicleManager::begin()
 {
-  uint16_t vehicleId = Config::getVehicleId();
+  uint16_t vehicleId = GlobalConfig.getVehicleId();
 
   log_i("Searching for vehicle entry with ID: %04X", vehicleId);
 
@@ -34,3 +32,5 @@ Vehicle* VehicleManager::getVehicle()
 {
   return vehicle;
 }
+
+VehicleManager GlobalVehicleManager;

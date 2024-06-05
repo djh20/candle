@@ -6,15 +6,9 @@
 
 #define UPDATE_INTERVAL 60U
 
-static Vehicle *vehicle;
-static BLECharacteristic *characteristics[16];
-static uint8_t totalCharacteristics = 0;
-static uint8_t characteristicValueBuffer[BLE_LEN_GROUPED_METRIC_DATA];
-static uint32_t lastUpdateMillis = 0;
-
 void BluetoothVehicle::begin()
 {
-  vehicle = VehicleManager::getVehicle();
+  vehicle = GlobalVehicleManager.getVehicle();
   if (!vehicle)
   {
     log_w("Failed to create bluetooth metrics service - no vehicle instance");
@@ -22,30 +16,30 @@ void BluetoothVehicle::begin()
   }
 
   // Create bluetooth service for metrics.
-  BLEService *metricsService = Bluetooth::getServer()->createService(
-    Bluetooth::uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
+  BLEService *metricsService = GlobalBluetooth.getServer()->createService(
+    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
   );
 
   for (uint8_t i = 0; i < vehicle->totalMetrics;)
   {
     // Create characteristic for grouped metric data.
     BLECharacteristic *characteristic = new BLECharacteristic(
-      Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalCharacteristics),
+      GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalCharacteristics),
       BLECharacteristic::PROPERTY_READ |
       BLECharacteristic::PROPERTY_NOTIFY
     );
-    characteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
+    characteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
 
     uint8_t characteristicValueIndex = 0;
 
     // Create descriptor for grouped metric info.
     BLEDescriptor *descriptor = new BLEDescriptor(
-      Bluetooth::uuid(UUID_CUSTOM, BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
-      BLE_LEN_GROUPED_METRIC_INFO
+      GlobalBluetooth.uuid(UUID_CUSTOM, BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
+      GROUPED_METRIC_INFO_LEN
     );
-    descriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
+    descriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
 
-    uint8_t descriptorBuffer[BLE_LEN_GROUPED_METRIC_INFO];
+    uint8_t descriptorBuffer[GROUPED_METRIC_INFO_LEN];
     uint8_t descriptorBufferSize = 0;
   
     for (; i < vehicle->totalMetrics; i++) {
@@ -55,7 +49,7 @@ void BluetoothVehicle::begin()
       uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
 
       // Break the loop if we are going to exceed the max amount of data that can be stored in one characteristic.
-      if (characteristicValueLength > BLE_LEN_GROUPED_METRIC_DATA)
+      if (characteristicValueLength > GROUPED_METRIC_DATA_LEN)
         break;
 
       metric->getDescriptorData(descriptorBuffer, descriptorBufferSize, characteristicValueIndex); // Add descriptor data to buffer.
@@ -67,7 +61,7 @@ void BluetoothVehicle::begin()
     characteristic->addDescriptor(descriptor);
 
     BLEDescriptor *notifyDescriptor = new BLE2902();
-    notifyDescriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
+    notifyDescriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
     characteristic->addDescriptor(notifyDescriptor);
 
     metricsService->addCharacteristic(characteristic);
@@ -81,11 +75,11 @@ void BluetoothVehicle::loop()
 {
   if (!vehicle) return;
 
-  Bluetooth::setCanAdvertise(!vehicle->awake->initialized || vehicle->awake->value);
+  GlobalBluetooth.setCanAdvertise(!vehicle->awake->initialized || vehicle->awake->value);
 
   uint32_t now = millis();
   
-  if (now - lastUpdateMillis >= UPDATE_INTERVAL && Bluetooth::getClientConnected())
+  if (now - lastUpdateMillis >= UPDATE_INTERVAL && GlobalBluetooth.getClientConnected())
   {
     uint8_t characteristicIndex = 0;
 
@@ -98,7 +92,7 @@ void BluetoothVehicle::loop()
         Metric *metric = vehicle->metrics[i];
         uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
 
-        if (characteristicValueLength > BLE_LEN_GROUPED_METRIC_DATA)
+        if (characteristicValueLength > GROUPED_METRIC_DATA_LEN)
           break;
         
         metric->getValueData(characteristicValueBuffer, characteristicValueIndex);
@@ -115,3 +109,5 @@ void BluetoothVehicle::loop()
     lastUpdateMillis = now;
   }
 }
+
+BluetoothVehicle GlobalBluetoothVehicle;

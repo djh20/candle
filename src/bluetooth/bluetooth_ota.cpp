@@ -2,8 +2,6 @@
 #include "bluetooth.h"
 #include <BLEService.h>
 #include <BLE2902.h>
-#include <Update.h>
-#include <esp_ota_ops.h>
 
 #define STATUS_CODE_SUCCESS 0U
 #define STATUS_CODE_ERROR 1U
@@ -11,42 +9,9 @@
 #define VERIFY_DELAY 3000U
 #define RESTART_DELAY 500U
 
-// Stores the MD5 hash string of incoming firmware.
-// Extra byte for null terminator.
-static char hashStr[ESP_ROM_MD5_DIGEST_LEN * 2 + 1];
-
-static uint8_t responseData[2] = {0xFF, 0x00};
-static BLECharacteristic *commandCharacteristic;
-static BLECharacteristic *dataCharacteristic;
-static bool updateFinished = false;
-static float updateProgressPercent;
-static uint32_t updateFinishMillis = 0;
-static esp_ota_img_states_t partitionState = ESP_OTA_IMG_INVALID;
-
-// Override function in esp32-hal-misc.c to disable automatic
-// app verification after OTA. Not sure if this works...
+// Override function in esp32-hal-misc.c to disable automatic app verification after OTA.
 extern "C" bool verifyRollbackLater() {
   return true;
-}
-
-class CharacteristicCallbacks: public BLECharacteristicCallbacks {
-  void onWrite(BLECharacteristic *pCharacteristic) {
-    if (pCharacteristic == commandCharacteristic)
-    {
-      BluetoothOTA::processCommand(pCharacteristic->getData(), pCharacteristic->getLength());
-    }
-    else if (pCharacteristic == dataCharacteristic)
-    {
-      BluetoothOTA::writeFirmware(pCharacteristic->getData(), pCharacteristic->getLength());
-    }
-  }
-};
-
-static void sendResponse(uint8_t statusCode)
-{
-  responseData[1] = statusCode;
-  commandCharacteristic->setValue(responseData, sizeof(responseData));
-  commandCharacteristic->notify();
 }
 
 void BluetoothOTA::begin()
@@ -54,12 +19,12 @@ void BluetoothOTA::begin()
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_get_state_partition(running, &partitionState);
 
-  BLEService *service = Bluetooth::getServer()->createService(
-    Bluetooth::uuid(UUID_CUSTOM, BLE_SERVICE_OTA)
+  BLEService *service = GlobalBluetooth.getServer()->createService(
+    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_SERVICE_OTA)
   );
 
   commandCharacteristic = service->createCharacteristic(
-    Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
+    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
@@ -67,24 +32,42 @@ void BluetoothOTA::begin()
   );
 
   // TODO: Maybe OTA should only be available once a pin has been set.
-  commandCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
-  commandCharacteristic->setCallbacks(new CharacteristicCallbacks());
+  commandCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+  commandCharacteristic->setCallbacks(this);
 
   BLEDescriptor *notifyDescriptor = new BLE2902();
-  notifyDescriptor->setAccessPermissions(Bluetooth::getAccessPermissions());
+  notifyDescriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
   commandCharacteristic->addDescriptor(notifyDescriptor);
 
   dataCharacteristic = service->createCharacteristic(
-    Bluetooth::uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
+    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_INDICATE
   );
 
-  dataCharacteristic->setAccessPermissions(Bluetooth::getAccessPermissions());
-  dataCharacteristic->setCallbacks(new CharacteristicCallbacks());
+  dataCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+  dataCharacteristic->setCallbacks(this);
 
   service->start();
+}
+
+void BluetoothOTA::loop()
+{
+  uint32_t now = millis();
+
+  if (partitionState == ESP_OTA_IMG_PENDING_VERIFY && now >= VERIFY_DELAY)
+  {
+    log_i("Verified app partition");
+    esp_ota_mark_app_valid_cancel_rollback();
+    partitionState = ESP_OTA_IMG_VALID;
+  }
+
+  if (updateFinished && now - updateFinishMillis >= RESTART_DELAY)
+  {
+    updateFinished = false;
+    ESP.restart();
+  }
 }
 
 void BluetoothOTA::processCommand(uint8_t *data, size_t length)
@@ -184,20 +167,22 @@ void BluetoothOTA::writeFirmware(uint8_t *data, size_t length)
   }
 }
 
-void BluetoothOTA::loop()
+void BluetoothOTA::sendResponse(uint8_t statusCode)
 {
-  uint32_t now = millis();
+  responseData[1] = statusCode;
+  commandCharacteristic->setValue(responseData, sizeof(responseData));
+  commandCharacteristic->notify();
+}
 
-  if (partitionState == ESP_OTA_IMG_PENDING_VERIFY && now >= VERIFY_DELAY)
+void BluetoothOTA::onWrite(BLECharacteristic* pCharacteristic, esp_ble_gatts_cb_param_t* param) {
+  if (pCharacteristic == commandCharacteristic)
   {
-    log_i("Verified app partition");
-    esp_ota_mark_app_valid_cancel_rollback();
-    partitionState = ESP_OTA_IMG_VALID;
+    processCommand(pCharacteristic->getData(), pCharacteristic->getLength());
   }
-
-  if (updateFinished && now - updateFinishMillis >= RESTART_DELAY)
+  else if (pCharacteristic == dataCharacteristic)
   {
-    updateFinished = false;
-    ESP.restart();
+    writeFirmware(pCharacteristic->getData(), pCharacteristic->getLength());
   }
 }
+
+BluetoothOTA GlobalBluetoothOTA;

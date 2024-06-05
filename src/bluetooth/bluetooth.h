@@ -6,8 +6,6 @@
 #define UUID_STANDARD false
 #define UUID_CUSTOM true
 
-#define BLE_NAME_MAX_LEN 31
-
 #define BLE_STD_SERVICE_DEVICE_INFO 0x180A
 #define BLE_STD_CHARACTERISTIC_MODEL_NUMBER 0x2A24
 #define BLE_STD_CHARACTERISTIC_FIRMWARE_VERSION 0x2A26
@@ -23,8 +21,7 @@
 #define BLE_SERVICE_CONFIG 0x0200
 #define BLE_CHARACTERISTIC_CONFIG_VEHICLE_ID 0x0201
 #define BLE_CHARACTERISTIC_CONFIG_BLUETOOTH_MODE 0x0202
-#define BLE_CHARACTERISTIC_CONFIG_BLUETOOTH_NAME 0x0203
-#define BLE_CHARACTERISTIC_CONFIG_BLUETOOTH_PIN 0x0204
+#define BLE_CHARACTERISTIC_CONFIG_BLUETOOTH_PIN 0x0203
 
 #define BLE_SERVICE_VEHICLE_CATALOG 0x0300
 #define BLE_CHARACTERISTIC_SUPPORTED_VEHICLE 0x0301
@@ -33,17 +30,37 @@
 #define BLE_CHARACTERISTIC_GROUPED_METRIC_DATA 0x0401
 #define BLE_DESCRIPTOR_GROUPED_METRIC_INFO 0x0402
 
-#define BLE_LEN_GROUPED_METRIC_DATA 64
-#define BLE_LEN_GROUPED_METRIC_INFO 96
-
-namespace Bluetooth
+class Bluetooth: public BLEServerCallbacks
 {
-  void begin();
-  void loop();
+  public:
+    void begin();
+    void loop();
 
-  void setCanAdvertise(bool value);
-  BLEServer *getServer();
-  bool getClientConnected();
-  BLEUUID uuid(bool custom, uint16_t id, uint16_t discriminator = 0x0000);
-  esp_gatt_perm_t getAccessPermissions();
-}
+    void onConnect(BLEServer* pServer);
+    void onDisconnect(BLEServer* pServer);
+
+    void setCanAdvertise(bool value);
+    BLEServer *getServer();
+    bool getClientConnected();
+    BLEUUID uuid(bool custom, uint16_t id, uint16_t discriminator = 0x0000);
+    esp_gatt_perm_t getAccessPermissions();
+  
+  private:
+    BLEServer *server;
+    bool clientConnected = false;
+    bool advertising = false;
+    bool canAdvertise = true;
+    uint32_t lastDisconnectMillis = 0;
+
+    // Custom UUID Format (Randomly Generated):
+    // XXXXXXXX-XXXX-4D91-B049-E2828E6DA1A0
+    uint8_t uuidBuffer[16] = {
+      0x00, 0x00, 0x00, 0x00,
+      0x00, 0x00,
+      0x4D, 0x91,
+      0xB0, 0x49,
+      0xE2, 0x82, 0x8E, 0x6D, 0xA1, 0xA0
+    };
+};
+
+extern Bluetooth GlobalBluetooth;

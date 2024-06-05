@@ -11,61 +11,31 @@
 #define BLUETOOTH_MODE_OPEN 0U
 #define BLUETOOTH_MODE_ENCRYPTED 1U
 
-// Custom UUID Format (Randomly Generated):
-// XXXXXXXX-XXXX-4D91-B049-E2828E6DA1A0
-static uint8_t uuidBuffer[16] = {
-  0x00, 0x00, 0x00, 0x00,
-  0x00, 0x00,
-  0x4D, 0x91,
-  0xB0, 0x49,
-  0xE2, 0x82, 0x8E, 0x6D, 0xA1, 0xA0
-};
-
-static BLEServer *server;
-static bool clientConnected = false;
-static bool advertising = false;
-static bool canAdvertise = true;
-static uint32_t lastDisconnectMillis = 0;
-
-class BluetoothCallbacks: public BLEServerCallbacks {
-  void onConnect(BLEServer* pServer) {
-    clientConnected = true;
-    advertising = false;
-    log_i("Bluetooth client connected");
-  };
-
-  void onDisconnect(BLEServer* pServer) {
-    lastDisconnectMillis = millis();
-    clientConnected = false;
-    log_i("Bluetooth client disconnected");
-  }
-};
-
 void Bluetooth::begin()
 {
-  BLEDevice::init(Config::getBluetoothName());
+  BLEDevice::init(GlobalConfig.getDeviceName());
   
   server = BLEDevice::createServer();
-  server->setCallbacks(new BluetoothCallbacks());
+  server->setCallbacks(this);
 
-  if (Config::getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
+  if (GlobalConfig.getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
   {
     BLESecurity *security = new BLESecurity();
-    security->setStaticPIN(Config::getBluetoothPin());
+    security->setStaticPIN(GlobalConfig.getBluetoothPin());
     security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     security->setCapability(ESP_IO_CAP_OUT);
   }
 
-  BluetoothDeviceInfo::begin();
-  BluetoothOTA::begin();
-  BluetoothConfig::begin();
-  BluetoothVehicle::begin();
+  GlobalBluetoothDeviceInfo.begin();
+  GlobalBluetoothOTA.begin();
+  GlobalBluetoothConfig.begin();
+  GlobalBluetoothVehicle.begin();
 }
 
 void Bluetooth::loop()
 {
-  BluetoothOTA::loop();
-  BluetoothVehicle::loop();
+  GlobalBluetoothOTA.loop();
+  GlobalBluetoothVehicle.loop();
   
   uint32_t now = millis();
   if (!advertising && !clientConnected && canAdvertise && now - lastDisconnectMillis >= ADVERTISE_DELAY)
@@ -80,6 +50,18 @@ void Bluetooth::loop()
     advertising = false;
     log_i("Stopped bluetooth advertising");
   }
+}
+
+void Bluetooth::onConnect(BLEServer* pServer) {
+  clientConnected = true;
+  advertising = false;
+  log_i("Bluetooth client connected");
+}
+
+void Bluetooth::onDisconnect(BLEServer* pServer) {
+  lastDisconnectMillis = millis();
+  clientConnected = false;
+  log_i("Bluetooth client disconnected");
 }
 
 void Bluetooth::setCanAdvertise(bool value)
@@ -117,7 +99,7 @@ BLEUUID Bluetooth::uuid(bool custom, uint16_t id, uint16_t discriminator)
 
 esp_gatt_perm_t Bluetooth::getAccessPermissions()
 {
-  if (Config::getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
+  if (GlobalConfig.getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
   {
     return ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED;
   }
@@ -126,3 +108,5 @@ esp_gatt_perm_t Bluetooth::getAccessPermissions()
     return ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
   }
 }
+
+Bluetooth GlobalBluetooth;

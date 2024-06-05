@@ -2,10 +2,16 @@
 
 #include "vehicle.h"
 
-namespace VehicleManager
+class VehicleManager
 {
-  void begin();
-  void loop();
+  public:
+    void begin();
+    void loop();
 
-  Vehicle* getVehicle();
-}
+    Vehicle* getVehicle();
+
+  private:
+    Vehicle* vehicle;
+};
+
+extern VehicleManager GlobalVehicleManager;

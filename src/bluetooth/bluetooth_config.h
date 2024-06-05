@@ -1,6 +1,14 @@
 #pragma once
 
-namespace BluetoothConfig
+#include <BLECharacteristic.h>
+
+class BluetoothConfig
 {
-  void begin();
-}
+  public:
+    void begin();
+  
+  private:
+    BLECharacteristic *vehicleIdCharacteristic;
+};
+
+extern BluetoothConfig GlobalBluetoothConfig;

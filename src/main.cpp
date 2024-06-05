@@ -24,13 +24,13 @@ void setup()
   Serial.println();
   #endif
 
-  Config::begin();
-  VehicleManager::begin();
-  Bluetooth::begin();
+  GlobalConfig.begin();
+  GlobalVehicleManager.begin();
+  GlobalBluetooth.begin();
 }
 
-void loop() 
+void loop()
 {
-  VehicleManager::loop();
-  Bluetooth::loop();
+  GlobalVehicleManager.loop();
+  GlobalBluetooth.loop();
 }

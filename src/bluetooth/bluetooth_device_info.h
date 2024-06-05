@@ -1,6 +1,9 @@
 #pragma once
 
-namespace BluetoothDeviceInfo
+class BluetoothDeviceInfo
 {
-  void begin();
-}
+  public:
+    void begin();
+};
+
+extern BluetoothDeviceInfo GlobalBluetoothDeviceInfo;
