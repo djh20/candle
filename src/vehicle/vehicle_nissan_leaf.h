@@ -8,7 +8,7 @@ class VehicleNissanLeaf: public Vehicle
     VehicleNissanLeaf();
 
     CanBus *mainBus;
-
+    
     MetricInt *gear;
     MetricFloat *soc;
     MetricFloat *soh;
@@ -24,12 +24,13 @@ class VehicleNissanLeaf: public Vehicle
     MetricInt *fanSpeed;
     MetricInt *chargeStatus;
     MetricInt *remainingChargeTime;
-    MetricInt *rangeAtLastCharge;
     MetricInt *turnSignal;
     MetricInt *headlights;
     MetricInt *parkBrake;
     MetricInt *quickCharges;
     MetricInt *slowCharges;
+    MetricInt *tripDistance;
+    MetricInt *tripEfficiency;
 
   protected:
     void registerAll();
@@ -40,6 +41,14 @@ class VehicleNissanLeaf: public Vehicle
     void testCycle();
 
   private:
+    void startTrip();
+    void endTrip();
+
+    bool tripInProgress = false;
+    uint32_t odometer = 0;
+    uint32_t odometerAtLastCharge = 0;
+    uint16_t rangeAtLastCharge = 0;
+
     uint8_t bmsQuery[8] = {0x02, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
     PollTask *bmsTask;
 

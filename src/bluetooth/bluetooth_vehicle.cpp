@@ -75,7 +75,7 @@ void BluetoothVehicle::loop()
 {
   if (!vehicle) return;
 
-  GlobalBluetooth.setCanAdvertise(!vehicle->awake->initialized || vehicle->awake->value);
+  GlobalBluetooth.setCanAdvertise(!vehicle->awake->valid || vehicle->awake->value);
 
   uint32_t now = millis();
   

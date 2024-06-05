@@ -1,15 +1,13 @@
 #include "vehicle.h"
 #include <Arduino.h>
 
-#define TEST_CYCLE_INTERVAL 500U
+#define TEST_CYCLE_INTERVAL 200U
 
 Vehicle::Vehicle() {}
 
 void Vehicle::begin()
 {
   registerMetric(awake = new MetricInt(METRIC_AWAKE, Unit::None));
-  registerMetric(tripDistance = new MetricFloat(METRIC_TRIP_DISTANCE, Unit::Kilometers, Precision::High));
-
   registerAll();
 }
 

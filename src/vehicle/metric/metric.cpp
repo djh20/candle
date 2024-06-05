@@ -11,6 +11,18 @@ void Metric::onUpdate(std::function<void()> handler)
   updateHandler = handler;
 }
 
+void Metric::invalidate()
+{
+  valid = false;
+  markAsUpdated();
+}
+
+void Metric::markAsUpdated()
+{
+  lastUpdateMillis = millis();
+  if (updateHandler) updateHandler();
+}
+
 void Metric::setValueFromRawData(uint8_t *data) {}
 void Metric::setValueFromString(String str) {}
 void Metric::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex) {}
@@ -21,14 +33,12 @@ MetricInt::MetricInt(uint16_t id, Unit unit) : Metric(id, unit) {}
 
 void MetricInt::setValue(int32_t newValue)
 {
-  if (newValue == value && initialized) return;
+  if (newValue == value && valid) return;
 
-  initialized = true;
+  valid = true;
   value = newValue;
 
-  lastUpdateMillis = millis();
-
-  if (updateHandler) updateHandler();
+  markAsUpdated();
 }
 
 void MetricInt::setValueFromRawData(uint8_t *data) {
@@ -48,7 +58,7 @@ void MetricInt::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_
 }
 
 void MetricInt::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {
-  buffer[bufferIndex++] = initialized;
+  buffer[bufferIndex++] = valid;
   buffer[bufferIndex++] = value >> 24;
   buffer[bufferIndex++] = value >> 16;
   buffer[bufferIndex++] = value >> 8;
@@ -66,14 +76,12 @@ MetricFloat::MetricFloat(uint16_t id, Unit unit, Precision precision) : Metric(i
 
 void MetricFloat::setValue(float newValue)
 {
-  if (newValue == value && initialized) return;
+  if (newValue == value && valid) return;
 
-  initialized = true;
+  valid = true;
   value = newValue;
 
-  lastUpdateMillis = millis();
-
-  if (updateHandler) updateHandler();
+  markAsUpdated();
 }
 
 void MetricFloat::setValueFromRawData(uint8_t *data) {
@@ -96,7 +104,7 @@ void MetricFloat::getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint
 
 void MetricFloat::getValueData(uint8_t buffer[], uint8_t &bufferIndex) {
   int32_t convertedValue = value * (float)pow(10, (uint8_t)precision);
-  buffer[bufferIndex++] = initialized;
+  buffer[bufferIndex++] = valid;
   buffer[bufferIndex++] = convertedValue >> 24;
   buffer[bufferIndex++] = convertedValue >> 16;
   buffer[bufferIndex++] = convertedValue >> 8;

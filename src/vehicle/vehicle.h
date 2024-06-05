@@ -18,7 +18,6 @@ class Vehicle
     void loop();
 
     MetricInt *awake;
-    MetricFloat *tripDistance;
 
     CanBus *busses[VEHICLE_MAX_BUSSES];
     uint8_t totalBusses = 0;

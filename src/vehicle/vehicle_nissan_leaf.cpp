@@ -31,12 +31,14 @@ void VehicleNissanLeaf::registerAll()
   registerMetric(fanSpeed = new MetricInt(METRIC_FAN_SPEED, Unit::None));
   registerMetric(chargeStatus = new MetricInt(METRIC_CHARGE_STATUS, Unit::None));
   registerMetric(remainingChargeTime = new MetricInt(METRIC_REMAINING_CHARGE_TIME, Unit::Minutes));
-  registerMetric(rangeAtLastCharge = new MetricInt(METRIC_RANGE_LAST_CHARGE, Unit::Kilometers));
   registerMetric(turnSignal = new MetricInt(METRIC_TURN_SIGNAL, Unit::None));
   registerMetric(headlights = new MetricInt(METRIC_HEADLIGHTS, Unit::None));
   registerMetric(parkBrake = new MetricInt(METRIC_PARK_BRAKE, Unit::None));
   registerMetric(quickCharges = new MetricInt(METRIC_QUICK_CHARGES, Unit::None));
   registerMetric(slowCharges = new MetricInt(METRIC_SLOW_CHARGES, Unit::None));
+
+  registerMetric(tripDistance = new MetricInt(METRIC_TRIP_DISTANCE, Unit::Kilometers));
+  registerMetric(tripEfficiency = new MetricInt(METRIC_TRIP_EFFICIENCY, Unit::Kilometers));
 
   registerTask(bmsTask = new PollTask(mainBus, 200, 500, 0x79B, 0x7BB, 6, bmsQuery));
   registerTask(slowChargesTask = new PollTask(mainBus, 300000, 500, 0x797, 0x79A, 1, slowChargesQuery));
@@ -132,15 +134,23 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
         batteryTemp->setValue((frameData[2] / 2.0) - 40);
       }
     }
-    else if (frameId == 0x5C5) // Parking Brake
+    else if (frameId == 0x5C5) // Parking Brake & Odometer
     {
       parkBrake->setValue((frameData[0] & 0x04) == 0x04);
+      odometer = (frameData[1] << 16) | (frameData[2] << 8) | frameData[3];
+      if (tripInProgress) 
+      { 
+        tripDistance->setValue(odometer - odometerAtLastCharge);
+
+        int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->value;
+        tripEfficiency->setValue(range->value - idealRemainingRange);
+      }
     }
   }
 }
 
 void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {
-  if (task == bmsTask && frames[1][0] == 0x21)
+  if (task == bmsTask)
   {
     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
     if (rawCurrentOne & 0x8000000 == 0x8000000) {
@@ -154,7 +164,12 @@ void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t
 
     batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
-    soc->setValue(((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0);
+
+    float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
+    if (newSoc >= 0 && newSoc <= 100) {
+      if (newSoc >= soc->value+5) endTrip(); // Detect if car has been charged.
+      soc->setValue(newSoc);
+    }
 
     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
     // Convert Ah to kWh
@@ -193,15 +208,11 @@ void VehicleNissanLeaf::updateExtraMetrics()
   }
 }
 
-void VehicleNissanLeaf::metricUpdated(Metric *metric) 
+void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   if (metric == gear && gear->value > 0)
   {
-    if (rangeAtLastCharge->value == 0)
-    {
-      rangeAtLastCharge->setValue(range->value);
-    }
-
+    startTrip();
     chargeStatus->setValue(0);
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
@@ -212,14 +223,35 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   {
     if (gear->value == 0 && batteryPower->value <= -1) {
       chargeStatus->setValue(1);
-      rangeAtLastCharge->setValue(0);
-      tripDistance->setValue(0);
+      endTrip();
     }
     else if (chargeStatus->value == 1 && batteryPower->value >= -0.5)
     {
       chargeStatus->setValue(2);
     }
   }
+}
+
+void VehicleNissanLeaf::startTrip()
+{
+  if (tripInProgress) return;
+
+  tripInProgress = true;
+  tripDistance->setValue(0);
+  tripEfficiency->setValue(0);
+  rangeAtLastCharge = range->value;
+  odometerAtLastCharge = odometer;
+}
+
+void VehicleNissanLeaf::endTrip()
+{
+  if (!tripInProgress) return;
+
+  tripInProgress = false;
+  tripDistance->setValue(0);
+  tripEfficiency->invalidate();
+  rangeAtLastCharge = 0;
+  odometerAtLastCharge = 0;
 }
 
 void VehicleNissanLeaf::testCycle()
@@ -231,6 +263,8 @@ void VehicleNissanLeaf::testCycle()
   batteryTemp->setValue(43.5);
   batteryCapacity->setValue(27);
   soh->setValue(87.3);
+  tripDistance->setValue(55);
+  tripEfficiency->setValue(-5);
 
   parkBrake->setValue(!parkBrake->value);
   headlights->setValue(!headlights->value);
@@ -244,7 +278,7 @@ void VehicleNissanLeaf::testCycle()
   powerValue += 5;
   if (powerValue > 80) powerValue = 0;
   batteryPower->setValue(powerValue);
-
+ 
   float steeringValue = steeringAngle->value;
   steeringValue += 0.2;
   if (steeringValue > 1) steeringValue = -1;

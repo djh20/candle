@@ -24,12 +24,12 @@
 #define METRIC_HV_BATT_TEMPERATURE 0x87C9
 #define METRIC_CHARGE_STATUS 0x2DA6
 #define METRIC_REMAINING_CHARGE_TIME 0x31D1
-#define METRIC_RANGE_LAST_CHARGE 0x5E38
 #define METRIC_QUICK_CHARGES 0x90FB
 #define METRIC_SLOW_CHARGES 0x18AB
 
-// GPS Metrics
+// Trip Metrics
 #define METRIC_TRIP_DISTANCE 0x912F
+#define METRIC_TRIP_EFFICIENCY 0x85D0
 
 enum MetricType
 {
@@ -69,16 +69,22 @@ class Metric
     Metric(uint16_t id, Unit unit);
 
     void onUpdate(std::function<void()> handler);
+    void invalidate();
+
     virtual void setValueFromRawData(uint8_t *data);
     virtual void setValueFromString(String str);
     virtual void getDescriptorData(uint8_t buffer[], uint8_t &bufferIndex, uint8_t valueDataIndex);
     virtual void getValueData(uint8_t buffer[], uint8_t &bufferIndex);
     virtual uint8_t getValueDataLength();
     
-    bool initialized = false;
+    bool valid = false;
     uint16_t id;
     uint32_t lastUpdateMillis = 0;
     Unit unit;
+
+  protected:
+    void markAsUpdated();
+
     std::function<void()> updateHandler;
 };
 
