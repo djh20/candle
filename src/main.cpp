@@ -2,10 +2,15 @@
 #include "config.h"
 #include "vehicle/vehicle_manager.h"
 #include "bluetooth/bluetooth.h"
+#include "serial/serial_terminal.h"
+
+#if ARDUHAL_LOG_LEVEL > ARDUHAL_LOG_LEVEL_NONE
+#define SERIAL_ENABLE
+#endif
 
 void setup() 
 {
-  #if ARDUHAL_LOG_LEVEL > ARDUHAL_LOG_LEVEL_NONE
+  #ifdef SERIAL_ENABLE
   Serial.begin(115200);
   delay(1000);
 
@@ -22,6 +27,8 @@ void setup()
   Serial.println("Disclaimer: This is a work in progress.");
 
   Serial.println();
+
+  GlobalSerialTerminal.begin();
   #endif
 
   GlobalConfig.begin();
@@ -31,6 +38,10 @@ void setup()
 
 void loop()
 {
+  #ifdef SERIAL_ENABLE
+  GlobalSerialTerminal.loop();
+  #endif
+  
   GlobalVehicleManager.loop();
   GlobalBluetooth.loop();
 }

@@ -11,7 +11,7 @@ class VehicleManager
     Vehicle* getVehicle();
 
   private:
-    Vehicle* vehicle;
+    Vehicle* vehicle = NULL;
 };
 
 extern VehicleManager GlobalVehicleManager;
