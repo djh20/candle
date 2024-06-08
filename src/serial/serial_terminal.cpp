@@ -1,9 +1,6 @@
 #include "serial_terminal.h"
-#include <Arduino.h>
 #include "../utils.h"
-
-void SerialTerminal::begin()
-{}
+#include "../vehicle/vehicle_manager.h"
 
 void SerialTerminal::loop()
 {
@@ -14,38 +11,80 @@ void SerialTerminal::loop()
     if (incomingChar == '\n')
     {
       runCommand();
-      commandPos = 0;
-      memset(commandData, 0, sizeof(commandData));
+      cmdArgIndex = 0;
+      cmdCharIndex = 0;
+      cmdArgReceived = false;
+      memset(cmdId, 0, sizeof(cmdId));
+      memset(cmdArgs, 0, sizeof(cmdArgs));
     }
-    else if (incomingChar != ' ' && incomingChar != '\r')
+    else if (incomingChar == ' ')
     {
-      if (commandPos < SERIAL_CMD_ID_LEN)
+      if (cmdArgReceived)
       {
-        commandId[commandPos] = incomingChar;
+        cmdArgIndex++;
+        cmdArgReceived = false;
+      }
+    }
+    else if (incomingChar != '\r')
+    {
+      if (cmdCharIndex < SERIAL_CMD_ID_LEN)
+      {
+        cmdId[cmdCharIndex] = incomingChar;
       }
       else
       {
-        commandData[commandPos-SERIAL_CMD_ID_LEN] = Utils::hexCharToInt(incomingChar);
+        cmdArgs[cmdArgIndex] <<= 4;
+        cmdArgs[cmdArgIndex] |= Utils::hexCharToInt(incomingChar);
+        cmdArgReceived = true;
       }
 
-      commandPos++;
+      cmdCharIndex++;
     } 
   }
 }
 
 void SerialTerminal::runCommand()
 {
-  if (strncmp(commandId, "REQ", SERIAL_CMD_ID_LEN) == 0) 
+  if (strncmp(cmdId, "REQ", SERIAL_CMD_ID_LEN) == 0) 
   {
-    // TODO: Send Request
+    log_i("Running request command...");
 
-    // Format:  CMD BUS REQ RES FRAMES DATA...
-    // Example: REQ 0  79B 7BB  06     02 21 01
+    uint8_t busId = cmdArgs[0];
+    log_i("Bus ID: %u", busId);
+    
+    uint16_t resId = cmdArgs[1];
+    log_i("Response ID: %02X", resId);
 
-    // With 4-bit values:
-    // uint8_t busId = commandData[0];
-    // uint16_t requestId = (commandData[1] << 8) | (commandData[2] << 4) | commandData[3];
-    // uint16_t responseId = (commandData[4] << 8) | (commandData[5] << 4) | commandData[6];
+    uint8_t resFrameCount = cmdArgs[2];
+    log_i("Frame Count: %u", resFrameCount);
+
+    uint8_t reqLength = cmdArgs[3];
+    log_i("Request Data Length: %u", reqLength);
+
+    uint16_t reqId = cmdArgs[4];
+    log_i("Request ID: %02X", reqId);
+
+    uint8_t reqData[8];
+    for (uint8_t i = 0; i < sizeof(reqData); i++)
+    {
+      reqData[i] = cmdArgs[i+5];
+    }
+
+    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+    if (vehicle)
+    {
+      PollTask *task = new PollTask(
+        vehicle->buses[busId], -1, 500, reqId, resId, 
+        resFrameCount, reqData, reqLength, true
+      );
+
+      vehicle->registerTask(task);
+    }
+  }
+  else if (strncmp(cmdId, "LOG", SERIAL_CMD_ID_LEN) == 0) 
+  {
+    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+    if (vehicle) vehicle->setMonitoredMessageId(cmdArgs[0]);
   }
 }
 

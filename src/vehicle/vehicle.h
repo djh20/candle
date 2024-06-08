@@ -5,7 +5,7 @@
 #include "can/poll_task.h"
 #include <mcp_can.h>
 
-#define VEHICLE_MAX_BUSSES 4
+#define VEHICLE_MAX_BUSES 4
 #define VEHICLE_MAX_METRICS 64
 #define VEHICLE_MAX_TASKS 16
 
@@ -17,10 +17,13 @@ class Vehicle
     void begin();
     void loop();
 
+    void registerTask(PollTask *task);
+    void setMonitoredMessageId(uint16_t id);
+
     MetricInt *awake;
 
-    CanBus *busses[VEHICLE_MAX_BUSSES];
-    uint8_t totalBusses = 0;
+    CanBus *buses[VEHICLE_MAX_BUSES];
+    uint8_t totalBuses = 0;
 
     Metric *metrics[VEHICLE_MAX_METRICS];
     uint8_t totalMetrics = 0;
@@ -31,9 +34,8 @@ class Vehicle
   protected:
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
-    void registerTask(PollTask *task);
     void processBusData();
-    void handleTasks();
+    void processTasks();
     virtual void registerAll();
     virtual void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
     virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]);
@@ -46,4 +48,5 @@ class Vehicle
 
   private:
     uint32_t lastTestCycleMillis = 0;
+    uint16_t monitoredMessageId = 0;
 };

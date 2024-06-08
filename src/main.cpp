@@ -27,8 +27,6 @@ void setup()
   Serial.println("Disclaimer: This is a work in progress.");
 
   Serial.println();
-
-  GlobalSerialTerminal.begin();
   #endif
 
   GlobalConfig.begin();

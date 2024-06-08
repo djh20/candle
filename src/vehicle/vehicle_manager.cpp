@@ -28,7 +28,7 @@ void VehicleManager::loop()
   }
 }
 
-Vehicle* VehicleManager::getVehicle()
+Vehicle *VehicleManager::getVehicle()
 {
   return vehicle;
 }

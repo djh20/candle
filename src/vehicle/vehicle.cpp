@@ -13,8 +13,8 @@ void Vehicle::begin()
 
 void Vehicle::loop()
 {
-  handleTasks();
   processBusData();
+  processTasks();
 
   #ifdef TEST_MODE
   uint32_t now = millis();
@@ -30,16 +30,17 @@ void Vehicle::loop()
 
 void Vehicle::registerBus(CanBus *bus)
 {
-  uint8_t id = totalBusses;
+  buses[totalBuses] = bus;
+  totalBuses++;
+
   bus->init();
 
   if (!bus->initialized) {
-    log_e("Failed to initialize bus %u", id);
+    log_e("Failed to initialize bus %u", totalBuses-1);
     return;
   }
 
-  busses[totalBusses++] = bus;
-  log_i("Registered bus %u", id);
+  log_i("Registered bus %u", totalBuses-1);
 }
 
 void Vehicle::registerMetric(Metric *metric) 
@@ -55,16 +56,15 @@ void Vehicle::registerMetric(Metric *metric)
 
 void Vehicle::registerTask(PollTask *task)
 {
-  uint8_t id = totalTasks;
+  log_i("Registered task %u", totalTasks);
   tasks[totalTasks++] = task;
-  log_i("Registered task %u", id);
 }
 
 void Vehicle::processBusData()
 {
-  for (uint8_t busIndex = 0; busIndex < totalBusses; busIndex++) 
+  for (uint8_t busIndex = 0; busIndex < totalBuses; busIndex++) 
   {
-    CanBus *bus = busses[busIndex];
+    CanBus *bus = buses[busIndex];
 
     // Attempt to read 10 frames to ensure we don't miss any.
     // TODO: Determine if this is necessary.
@@ -73,15 +73,20 @@ void Vehicle::processBusData()
       bool gotFrame = bus->readFrame();
       if (gotFrame) 
       {
-        processFrame(bus, bus->frameId, bus->frameData);
-        if (currentTask != NULL && currentTask->responseId == bus->frameId && currentTask->bus == bus)
+        if (bus->frameId == monitoredMessageId)
         {
-          bool taskCompleted = currentTask->processFrame(bus->frameData);
-          if (taskCompleted)
-          {
-            log_d("Task %u completed", currentTaskIndex);
-            processPollResponse(bus, currentTask, currentTask->buffer);
-          }
+          log_i(
+            "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X (loop %u)",
+            bus->frameId, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
+            bus->frameData[3], bus->frameData[4], bus->frameData[5], bus->frameData[6], 
+            bus->frameData[7], i
+          );
+        }
+       
+        processFrame(bus, bus->frameId, bus->frameData);
+        if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
+        {
+          currentTask->processFrame(bus->frameData);
         }
       }
       else break;
@@ -89,40 +94,60 @@ void Vehicle::processBusData()
   }
 }
 
-void Vehicle::handleTasks()
+void Vehicle::processTasks()
 {
   uint32_t now = millis();
 
-  if (currentTask != NULL)
+  if (currentTask)
   {
-    if (!currentTask->running) {
-      currentTask = NULL;
-    }
-    else if (now - currentTask->lastRunMillis >= currentTask->timeout)
+    if (currentTask->isFinished())
     {
-      //Logger.log(Debug, "vehicle", "Cancelling task %u", currentTaskIndex);
-      currentTask->cancel();
-      currentTask = NULL;
-    }
-    else return;
-  }
+      log_i("Task finished");
 
-  // Only run tasks if vehicle awake for at least 2 seconds.
-  if (awake->value && (now - awake->lastUpdateMillis) >= 2000) {
-    for (uint8_t offset = 0; offset < totalTasks; offset++)
-    {
-      uint8_t i = (currentTaskIndex + offset) % totalTasks;
-
-      PollTask* task = tasks[i];
-      if (now >= task->nextRunMillis) {
-        currentTask = task;
-        currentTaskIndex = i;
-        //Logger.log(Debug, "vehicle", "Running task %u", i);
-        task->run();
-        return;
+      if (currentTask->lastRunWasSuccessful)
+      {
+        processPollResponse(currentTask->bus, currentTask, currentTask->buffer);
       }
+
+      // Move queue forward.
+      for (uint8_t i = currentTaskIndex; i < totalTasks; i++)
+      {
+        tasks[i] = tasks[i+1];
+      }
+
+      // Only add task back to queue if it's periodic.
+      if (currentTask->interval >= 0)
+      {
+        tasks[totalTasks-1] = currentTask;
+      }
+      else
+      {
+        log_i("Deleted task");
+        totalTasks--;
+        delete currentTask;
+      }
+
+      currentTask = NULL;
+    }
+
+    return;
+  }
+
+  for (uint8_t i = 0; i < totalTasks; i++)
+  {
+    PollTask* task = tasks[i];
+    if (task->run())
+    {
+      currentTask = task;
+      currentTaskIndex = i;
+      break;
     }
   }
+}
+
+void Vehicle::setMonitoredMessageId(uint16_t id)
+{
+  monitoredMessageId = id;
 }
 
 void Vehicle::registerAll() {}

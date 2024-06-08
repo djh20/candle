@@ -2,7 +2,7 @@
 
 #include <mcp_can.h>
 
-#define CAN_BUS_MAX_FRAME_LEN 8
+#define CAN_BUS_FRAME_DATA_LEN 8
 
 class CanBus 
 {
@@ -24,6 +24,6 @@ class CanBus
     MCP_CAN* mcp;
 
     long unsigned int frameId;
-    byte frameData[CAN_BUS_MAX_FRAME_LEN];
+    byte frameData[CAN_BUS_FRAME_DATA_LEN];
     byte frameLen = 0;
 };

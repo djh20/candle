@@ -8,26 +8,40 @@
 class PollTask 
 {
   public:
-    PollTask(CanBus *bus, uint32_t interval, uint32_t timeout, uint32_t requestId, uint32_t responseId, uint8_t responseFrames, uint8_t *query);
+    PollTask(
+      CanBus *bus, int32_t interval, uint32_t timeout, uint32_t reqId, 
+      uint32_t resId, uint8_t expectedResFrames, uint8_t *query, uint8_t queryLen = 8,
+      bool enabled = false
+    );
 
-    void run();
+    bool run();
+    bool isFinished();
+
     void success();
     void cancel();
-    bool processFrame(uint8_t *frameData);
-  
-    CanBus *bus;
-    uint32_t interval;
-    uint32_t timeout;
-    uint32_t requestId;
-    uint32_t responseId;
-    uint8_t expectedResponseFrames;
-    uint8_t *query;
+    void setEnabled(bool enabled);
+    void processFrame(uint8_t *frameData);
 
-    uint8_t buffer[POLL_TASK_BUFFER_LEN][CAN_BUS_MAX_FRAME_LEN];
+    bool enabled;
+    bool running = false;
+    bool lastRunWasSuccessful = false;
+    uint32_t lastRunMillis = 0;
+    uint32_t lastSuccessMillis = 0;
+
+    CanBus *bus;
+    int32_t interval;
+    uint32_t timeout;
+    uint32_t reqId;
+    uint32_t resId;
+
+    uint8_t buffer[POLL_TASK_BUFFER_LEN][CAN_BUS_FRAME_DATA_LEN];
+
+  protected:
+    uint8_t expectedResFrames;
+    uint8_t query[CAN_BUS_FRAME_DATA_LEN];
+    uint8_t queryLen;
+  
+  private:
     bool bufferTracker[POLL_TASK_BUFFER_LEN];
     uint8_t numResponseFrames = 0;
-
-    bool running = false;
-    uint32_t lastRunMillis = 0;
-    uint32_t nextRunMillis = 0;
 };

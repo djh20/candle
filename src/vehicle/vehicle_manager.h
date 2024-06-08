@@ -8,10 +8,10 @@ class VehicleManager
     void begin();
     void loop();
 
-    Vehicle* getVehicle();
+    Vehicle *getVehicle();
 
   private:
-    Vehicle* vehicle = NULL;
+    Vehicle *vehicle;
 };
 
 extern VehicleManager GlobalVehicleManager;

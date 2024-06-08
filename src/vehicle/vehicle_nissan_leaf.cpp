@@ -210,10 +210,19 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
-  if (metric == gear && gear->value > 0)
+  if (metric == awake)
   {
-    startTrip();
-    chargeStatus->setValue(0);
+    bmsTask->setEnabled(awake->value);
+    slowChargesTask->setEnabled(awake->value);
+    quickChargesTask->setEnabled(awake->value);
+  }
+  else if (metric == gear)
+  {
+    if (gear->value > 0)
+    {
+      startTrip();
+      chargeStatus->setValue(0);
+    }
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
   {

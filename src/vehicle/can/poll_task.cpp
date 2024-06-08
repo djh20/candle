@@ -1,63 +1,98 @@
 #include "poll_task.h"
 
-PollTask::PollTask(CanBus *bus, uint32_t interval, uint32_t timeout, uint32_t requestId, uint32_t responseId, uint8_t responseFrames, uint8_t *query)
+PollTask::PollTask(
+  CanBus *bus, int32_t interval, uint32_t timeout, uint32_t reqId, 
+  uint32_t resId, uint8_t expectedResFrames, uint8_t *query, uint8_t queryLen,
+  bool enabled
+)
 {
   this->bus = bus;
   this->interval = interval;
   this->timeout = timeout;
-  this->requestId = requestId;
-  this->responseId = responseId;
-  this->expectedResponseFrames = responseFrames;
-  this->query = query;
+  this->reqId = reqId;
+  this->resId = resId;
+  this->expectedResFrames = expectedResFrames;
+  this->queryLen = queryLen;
+  this->enabled = enabled;
+
+  memcpy(this->query, query, CAN_BUS_FRAME_DATA_LEN);
 }
 
-void PollTask::run()
+bool PollTask::run()
 {
+  if (!enabled || !bus->initialized) return false;
+  if (lastRunWasSuccessful && millis() - lastSuccessMillis < interval) return false;
+  
   running = true;
   lastRunMillis = millis();
-  if (bus->initialized) {
-    numResponseFrames = 0;
-    memset(bufferTracker, 0, expectedResponseFrames);
 
-    log_d("Sending query %X %X %X %X %X %X %X %X", query[0], query[1], query[2], query[3], query[4], query[5], query[6], query[7]);
-    bus->mcp->sendMsgBuf(requestId, 8, query);
-    
-  } else {
+  numResponseFrames = 0;
+  memset(bufferTracker, 0, expectedResFrames);
+  
+  log_i(
+    "Sending request: %03X %02X %02X %02X %02X %02X %02X %02X %02X",
+    reqId, query[0], query[1], query[2], query[3],
+    query[4], query[5], query[6], query[7]
+  );
+
+  bus->mcp->sendMsgBuf(reqId, queryLen, query);
+
+  return true;
+}
+
+bool PollTask::isFinished()
+{
+  if (!running) return true;
+
+  if (millis() - lastRunMillis >= timeout)
+  {
     cancel();
+    return true;
   }
+
+  return false;
 }
 
 void PollTask::success()
 {
+  lastRunWasSuccessful = true;
+  lastSuccessMillis = millis();
   running = false;
-  nextRunMillis = millis() + interval;
 }
 
 void PollTask::cancel()
 {
+  lastRunWasSuccessful = false;
   running = false;
 }
 
-bool PollTask::processFrame(uint8_t *frameData)
+void PollTask::setEnabled(bool enabled)
 {
+  this->enabled = enabled;
+}
+
+void PollTask::processFrame(uint8_t *frameData)
+{
+  if (!running) return;
+
   // The index where the incoming frame will be stored in the buffer.
   uint8_t bufferIndex = 0;
 
   // Only calculate buffer index if we are expecting multiple frames.
-  if (expectedResponseFrames > 1) {
+  if (expectedResFrames > 1) {
     if (frameData[0] >= query[1]) // Frames after flow control msg.
     {
       bufferIndex = frameData[0] - query[1] + 1;
     }
     else if (frameData[0] != 0x10) // 0x10 is first frame.
     {
-      return false; // Ignore frame.
+      return; // Ignore frame.
     }
   }
 
-  log_d(
-    "Response (%u): %X %X %X %X %X %X %X %X",
-    bufferIndex, frameData[0], frameData[1],
+  log_i(
+    "Response (%u): %03X %02X %02X %02X %02X %02X %02X %02X %02X",
+    bufferIndex, resId, frameData[0], frameData[1],
     frameData[2], frameData[3], frameData[4],
     frameData[5], frameData[6], frameData[7]
   );
@@ -72,19 +107,17 @@ bool PollTask::processFrame(uint8_t *frameData)
   }
 
   // Copy frame data to buffer at specified index.
-  for (uint8_t i = 0; i < CAN_BUS_MAX_FRAME_LEN; i++)
+  for (uint8_t i = 0; i < CAN_BUS_FRAME_DATA_LEN; i++)
   {
     buffer[bufferIndex][i] = frameData[i];
   }
   
-  if (numResponseFrames >= expectedResponseFrames) 
+  if (numResponseFrames >= expectedResFrames) 
   {
     success();
-    return true;
   }
-  else if (frameData[0] == 0x10) {
-    bus->sendFlowControl(requestId);
+  else if (frameData[0] == 0x10) 
+  {
+    bus->sendFlowControl(reqId);
   }
-
-  return false;
 }
