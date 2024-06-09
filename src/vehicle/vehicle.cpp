@@ -66,30 +66,24 @@ void Vehicle::processBusData()
   {
     CanBus *bus = buses[busIndex];
 
-    // Attempt to read 10 frames to ensure we don't miss any.
-    // TODO: Determine if this is necessary.
-    for (uint8_t i = 0; i < 10; i++)
+    if (bus->readFrame()) 
     {
-      bool gotFrame = bus->readFrame();
-      if (gotFrame) 
+      if (bus->frameId == monitoredMessageId)
       {
-        if (bus->frameId == monitoredMessageId)
-        {
-          log_i(
-            "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X (loop %u)",
-            bus->frameId, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
-            bus->frameData[3], bus->frameData[4], bus->frameData[5], bus->frameData[6], 
-            bus->frameData[7], i
-          );
-        }
-       
-        processFrame(bus, bus->frameId, bus->frameData);
-        if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
-        {
-          currentTask->processFrame(bus->frameData);
-        }
+        log_i(
+          "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X",
+          bus->frameId, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
+          bus->frameData[3], bus->frameData[4], bus->frameData[5], bus->frameData[6], 
+          bus->frameData[7]
+        );
       }
-      else break;
+      
+      processFrame(bus, bus->frameId, bus->frameData);
+      
+      if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
+      {
+        currentTask->processFrame(bus->frameData);
+      }
     }
   }
 }
