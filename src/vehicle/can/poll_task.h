@@ -10,7 +10,8 @@ class PollTask
   public:
     PollTask(
       CanBus *bus, int32_t interval, uint32_t timeout, uint16_t reqId, 
-      uint16_t resId, uint8_t expectedResFrames, uint8_t *query, bool enabled = false
+      uint16_t resId, uint8_t expectedResFrames, uint8_t *query, 
+      uint8_t queryLen = 8, bool enabled = false
     );
 
     bool run();
@@ -44,6 +45,7 @@ class PollTask
   private:
     bool bufferTracker[POLL_TASK_BUFFER_LEN];
     uint8_t numResponseFrames = 0;
+    uint8_t queryLen;
 
     bool runLimitEnabled = false;
     uint16_t runsRemaining;

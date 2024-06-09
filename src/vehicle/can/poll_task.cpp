@@ -2,7 +2,8 @@
 
 PollTask::PollTask(
   CanBus *bus, int32_t interval, uint32_t timeout, uint16_t reqId, 
-  uint16_t resId, uint8_t expectedResFrames, uint8_t *query, bool enabled
+  uint16_t resId, uint8_t expectedResFrames, uint8_t *query, 
+  uint8_t queryLen, bool enabled
 )
 {
   this->bus = bus;
@@ -11,6 +12,7 @@ PollTask::PollTask(
   this->reqId = reqId;
   this->resId = resId;
   this->expectedResFrames = expectedResFrames;
+  this->queryLen = queryLen;
   this->enabled = enabled;
   
   memcpy(this->query, query, CAN_BUS_FRAME_DATA_LEN);
@@ -35,7 +37,7 @@ bool PollTask::run()
     query[4], query[5], query[6], query[7]
   );
 
-  bus->mcp->sendMsgBuf(reqId, CAN_BUS_FRAME_DATA_LEN, query);
+  bus->mcp->sendMsgBuf(reqId, queryLen, query);
 
   return true;
 }
@@ -120,7 +122,7 @@ void PollTask::processFrame(uint8_t *frameData)
   }
 
   // Copy frame data to buffer at specified index.
-  for (uint8_t i = 0; i < CAN_BUS_FRAME_DATA_LEN; i++)
+  for (uint8_t i = 0; i < queryLen; i++)
   {
     buffer[bufferIndex][i] = frameData[i];
   }

@@ -23,6 +23,7 @@ bool CanBus::readFrame()
 {
   if (digitalRead(intPin)) return false;
 
+  memset(frameData, 0, sizeof(frameData));
   mcp->readMsgBuf(&frameId, &frameLen, frameData);
   return true;
 }

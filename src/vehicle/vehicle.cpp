@@ -68,11 +68,11 @@ void Vehicle::processBusData()
 
     if (bus->readFrame()) 
     {
-      if (bus->frameId == monitoredMessageId)
+      if (bus->frameId == monitoredMessageId || monitoredMessageId == 0xFFFF)
       {
         log_i(
-          "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X",
-          bus->frameId, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
+          "[%03X] (%u): %02X %02X %02X %02X %02X %02X %02X %02X",
+          bus->frameId, bus->frameLen, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
           bus->frameData[3], bus->frameData[4], bus->frameData[5], bus->frameData[6], 
           bus->frameData[7]
         );

@@ -68,8 +68,8 @@ void SerialTerminal::runCommand()
     if (vehicle)
     {
       PollTask *task = new PollTask(
-        vehicle->buses[busId], -1, 100, 
-        reqId, resId, 8, reqData, true
+        vehicle->buses[busId], -1, 500, 
+        reqId, resId, 8, reqData, 8, true
       );
 
       vehicle->registerTask(task);
@@ -91,17 +91,17 @@ void SerialTerminal::runCommand()
     {
       PollTask *wakeTask = new PollTask(
         bus, -1, 50, 0x68C, 0xFFFF, 1,
-        wakeRequest, true
+        emptyData, 8, true
       );
 
       PollTask *climateInitTask = new PollTask(
         bus, -1, 20, 0x56E, 0xFFFF, 1,
-        climateOnRequest, true
+        climateOnRequest, 8, true
       );
 
       PollTask *climateCompeteTask = new PollTask(
         bus, 0, 60, 0x56E, 0xFFFF, 1,
-        climateOnRequest, true
+        climateOnRequest, 8, true
       );
 
       climateCompeteTask->setRunLimit(45);
@@ -114,7 +114,7 @@ void SerialTerminal::runCommand()
     {
       PollTask *climateTask = new PollTask(
         bus, -1, 100, 0x56E, 0xFFFF, 1,
-        climateOffRequest, true
+        climateOffRequest, 8, true
       );
 
       vehicle->registerTask(climateTask);
@@ -123,7 +123,7 @@ void SerialTerminal::runCommand()
     {
       PollTask *wakeTask = new PollTask(
         bus, 0, 100, 0x68C, 0xFFFF, 1,
-        wakeRequest, true
+        emptyData, 8, true
       );
 
       wakeTask->setRunLimit(100);
@@ -139,6 +139,40 @@ void SerialTerminal::runCommand()
       climateTask->setRunLimit(100);
       vehicle->registerTask(climateTask);
     }
+    else if (cmdArgs[0] == 5) // Emulate BCM Wake
+    {
+      PollTask *wakeTask = new PollTask(
+        bus, -1, 40, 0x682, 0xFFFF, 1,
+        emptyData, 1, true
+      );
+
+      PollTask *extraWakeTask = new PollTask(
+        bus, -1, 0, 0x35D, 0xFFFF, 1,
+        bcmRequest, sizeof(bcmRequest), true
+      );
+
+      PollTask *doorsTask = new PollTask(
+        bus, 0, 100, 0x60D, 0xFFFF, 1,
+        doorsRequest, sizeof(doorsRequest), true
+      );
+
+      doorsTask->setRunLimit(20);
+
+      vehicle->registerTask(wakeTask);
+      vehicle->registerTask(extraWakeTask);
+      vehicle->registerTask(doorsTask);
+      // bus->mcp->sendMsgBuf(0x682, 1, emptyData);
+      // bus->mcp->sendMsgBuf(0x35D, 8, bcmRequest);
+      // bus->mcp->sendMsgBuf(0x60D, 8, doorsRequest);
+      // log_i("Sent wake up messages");
+    }
+    // else if (cmdArgs[0] == 6)
+    // {
+    //   bus->mcp->sendMsgBuf(0x682, 1, emptyData);
+    //   bus->mcp->sendMsgBuf(0x35D, 8, bcmRequest);
+    //   bus->mcp->sendMsgBuf(0x60D, 8, doorsRequest);
+    //   log_i("Sent wake up messages");
+    // }
   }
 }
 
