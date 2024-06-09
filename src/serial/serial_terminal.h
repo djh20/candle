@@ -18,6 +18,10 @@ class SerialTerminal
     uint8_t cmdCharIndex = 0;
     uint8_t cmdArgIndex = 0;
     bool cmdArgReceived = false;
+
+    uint8_t wakeRequest[8] = {0x00};
+    uint8_t climateOnRequest[8] = {0x4E, 0x08, 0x12, 0x00};
+    uint8_t climateOffRequest[8] = {0x56, 0x08, 0x12, 0x00};
 };
 
 extern SerialTerminal GlobalSerialTerminal;

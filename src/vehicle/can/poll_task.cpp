@@ -1,9 +1,8 @@
 #include "poll_task.h"
 
 PollTask::PollTask(
-  CanBus *bus, int32_t interval, uint32_t timeout, uint32_t reqId, 
-  uint32_t resId, uint8_t expectedResFrames, uint8_t *query, uint8_t queryLen,
-  bool enabled
+  CanBus *bus, int32_t interval, uint32_t timeout, uint16_t reqId, 
+  uint16_t resId, uint8_t expectedResFrames, uint8_t *query, bool enabled
 )
 {
   this->bus = bus;
@@ -12,9 +11,8 @@ PollTask::PollTask(
   this->reqId = reqId;
   this->resId = resId;
   this->expectedResFrames = expectedResFrames;
-  this->queryLen = queryLen;
   this->enabled = enabled;
-
+  
   memcpy(this->query, query, CAN_BUS_FRAME_DATA_LEN);
 }
 
@@ -26,6 +24,8 @@ bool PollTask::run()
   running = true;
   lastRunMillis = millis();
 
+  if (runLimitEnabled) runsRemaining--;
+
   numResponseFrames = 0;
   memset(bufferTracker, 0, expectedResFrames);
   
@@ -35,7 +35,7 @@ bool PollTask::run()
     query[4], query[5], query[6], query[7]
   );
 
-  bus->mcp->sendMsgBuf(reqId, queryLen, query);
+  bus->mcp->sendMsgBuf(reqId, CAN_BUS_FRAME_DATA_LEN, query);
 
   return true;
 }
@@ -51,6 +51,11 @@ bool PollTask::isFinished()
   }
 
   return false;
+}
+
+bool PollTask::canRunAgain()
+{
+  return interval >= 0 && (!runLimitEnabled || runsRemaining > 0);
 }
 
 void PollTask::success()
@@ -71,6 +76,12 @@ void PollTask::setEnabled(bool enabled)
   this->enabled = enabled;
 }
 
+void PollTask::setRunLimit(uint16_t limit)
+{
+  runsRemaining = limit;
+  runLimitEnabled = true;
+}
+
 void PollTask::processFrame(uint8_t *frameData)
 {
   if (!running) return;
@@ -89,6 +100,8 @@ void PollTask::processFrame(uint8_t *frameData)
       return; // Ignore frame.
     }
   }
+
+  if (bufferIndex > expectedResFrames-1) return;
 
   log_i(
     "Response (%u): %03X %02X %02X %02X %02X %02X %02X %02X %02X",

@@ -79,7 +79,7 @@ void Vehicle::processBusData()
       }
       
       processFrame(bus, bus->frameId, bus->frameData);
-      
+
       if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
       {
         currentTask->processFrame(bus->frameData);
@@ -109,8 +109,8 @@ void Vehicle::processTasks()
         tasks[i] = tasks[i+1];
       }
 
-      // Only add task back to queue if it's periodic.
-      if (currentTask->interval >= 0)
+      // Only add task back to queue if it's able to run again in the future.
+      if (currentTask->canRunAgain())
       {
         tasks[totalTasks-1] = currentTask;
       }

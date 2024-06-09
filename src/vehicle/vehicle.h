@@ -48,5 +48,5 @@ class Vehicle
 
   private:
     uint32_t lastTestCycleMillis = 0;
-    uint16_t monitoredMessageId = 0;
+    uint16_t monitoredMessageId = 0xFFFF;
 };

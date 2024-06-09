@@ -9,18 +9,19 @@ class PollTask
 {
   public:
     PollTask(
-      CanBus *bus, int32_t interval, uint32_t timeout, uint32_t reqId, 
-      uint32_t resId, uint8_t expectedResFrames, uint8_t *query, uint8_t queryLen = 8,
-      bool enabled = false
+      CanBus *bus, int32_t interval, uint32_t timeout, uint16_t reqId, 
+      uint16_t resId, uint8_t expectedResFrames, uint8_t *query, bool enabled = false
     );
 
     bool run();
     bool isFinished();
+    bool canRunAgain();
 
     void success();
     void cancel();
     void setEnabled(bool enabled);
     void processFrame(uint8_t *frameData);
+    void setRunLimit(uint16_t limit);
 
     bool enabled;
     bool running = false;
@@ -31,17 +32,19 @@ class PollTask
     CanBus *bus;
     int32_t interval;
     uint32_t timeout;
-    uint32_t reqId;
-    uint32_t resId;
+    uint16_t reqId;
+    uint16_t resId;
 
     uint8_t buffer[POLL_TASK_BUFFER_LEN][CAN_BUS_FRAME_DATA_LEN];
 
   protected:
     uint8_t expectedResFrames;
     uint8_t query[CAN_BUS_FRAME_DATA_LEN];
-    uint8_t queryLen;
   
   private:
     bool bufferTracker[POLL_TASK_BUFFER_LEN];
     uint8_t numResponseFrames = 0;
+
+    bool runLimitEnabled = false;
+    uint16_t runsRemaining;
 };
