@@ -58,7 +58,7 @@ void SerialTerminal::runCommand()
     uint16_t reqId = cmdArgs[2];
     log_i("Request ID: %03X", reqId);
 
-    uint8_t reqData[8];
+    uint8_t reqData[CAN_FRAME_MAX_DATA_LEN];
     for (uint8_t i = 0; i < sizeof(reqData); i++)
     {
       reqData[i] = cmdArgs[i+3];
@@ -68,9 +68,13 @@ void SerialTerminal::runCommand()
     if (vehicle)
     {
       PollTask *task = new PollTask(
-        vehicle->buses[busId], -1, 500, 
-        reqId, resId, 8, reqData, 8, true
+        vehicle->buses[busId], reqId, reqData, sizeof(reqData)
       );
+
+      task->configureResponse(resId, 10);
+      task->setTimeout(500);
+      task->setRunLimit(1);
+      task->setEnabled(true);
 
       vehicle->registerTask(task);
     }
@@ -87,92 +91,18 @@ void SerialTerminal::runCommand()
 
     CanBus *bus = vehicle->buses[0];
 
-    if (cmdArgs[0] == 1) // Enable Climate Control
-    {
-      PollTask *wakeTask = new PollTask(
-        bus, -1, 50, 0x68C, 0xFFFF, 1,
-        emptyData, 8, true
-      );
+    PollTask *task = new PollTask(bus, 0x679, emptyData, 1);
+    task->setRunLimit(2);
+    task->setTimeout(10);
+    task->setEnabled(true);
+    vehicle->registerTask(task);
 
-      PollTask *climateInitTask = new PollTask(
-        bus, -1, 20, 0x56E, 0xFFFF, 1,
-        climateOnRequest, 8, true
-      );
-
-      PollTask *climateCompeteTask = new PollTask(
-        bus, 0, 60, 0x56E, 0xFFFF, 1,
-        climateOnRequest, 8, true
-      );
-
-      climateCompeteTask->setRunLimit(45);
-
-      vehicle->registerTask(wakeTask);
-      vehicle->registerTask(climateInitTask);
-      vehicle->registerTask(climateCompeteTask);
-    }
-    else if (cmdArgs[0] == 2) // Disable Climate Control
-    {
-      PollTask *climateTask = new PollTask(
-        bus, -1, 100, 0x56E, 0xFFFF, 1,
-        climateOffRequest, 8, true
-      );
-
-      vehicle->registerTask(climateTask);
-    }
-    else if (cmdArgs[0] == 3) // Continuous Wake (Method 1 - Standard wake msg)
-    {
-      PollTask *wakeTask = new PollTask(
-        bus, 0, 100, 0x68C, 0xFFFF, 1,
-        emptyData, 8, true
-      );
-
-      wakeTask->setRunLimit(100);
-      vehicle->registerTask(wakeTask);
-    }
-    else if (cmdArgs[0] == 4) // Continuous Wake (Method 2 - Climate OFF)
-    {
-      PollTask *climateTask = new PollTask(
-        bus, 0, 100, 0x56E, 0xFFFF, 1,
-        climateOffRequest, true
-      );
-
-      climateTask->setRunLimit(100);
-      vehicle->registerTask(climateTask);
-    }
-    else if (cmdArgs[0] == 5) // Emulate BCM Wake
-    {
-      PollTask *wakeTask = new PollTask(
-        bus, -1, 40, 0x682, 0xFFFF, 1,
-        emptyData, 1, true
-      );
-
-      PollTask *extraWakeTask = new PollTask(
-        bus, -1, 0, 0x35D, 0xFFFF, 1,
-        bcmRequest, sizeof(bcmRequest), true
-      );
-
-      PollTask *doorsTask = new PollTask(
-        bus, 0, 100, 0x60D, 0xFFFF, 1,
-        doorsRequest, sizeof(doorsRequest), true
-      );
-
-      doorsTask->setRunLimit(20);
-
-      vehicle->registerTask(wakeTask);
-      vehicle->registerTask(extraWakeTask);
-      vehicle->registerTask(doorsTask);
-      // bus->mcp->sendMsgBuf(0x682, 1, emptyData);
-      // bus->mcp->sendMsgBuf(0x35D, 8, bcmRequest);
-      // bus->mcp->sendMsgBuf(0x60D, 8, doorsRequest);
-      // log_i("Sent wake up messages");
-    }
-    // else if (cmdArgs[0] == 6)
-    // {
-    //   bus->mcp->sendMsgBuf(0x682, 1, emptyData);
-    //   bus->mcp->sendMsgBuf(0x35D, 8, bcmRequest);
-    //   bus->mcp->sendMsgBuf(0x60D, 8, doorsRequest);
-    //   log_i("Sent wake up messages");
-    // }
+    task = new PollTask(bus, 0x5C0, emptyData, 8);
+    task->setRunLimit(1);
+    task->setInterval(30);
+    task->waitUntilNextInterval();
+    task->setEnabled(true);
+    vehicle->registerTask(task);
   }
 }
 

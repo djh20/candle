@@ -40,12 +40,26 @@ void VehicleNissanLeaf::registerAll()
   registerMetric(tripDistance = new MetricInt(METRIC_TRIP_DISTANCE, Unit::Kilometers));
   registerMetric(tripEfficiency = new MetricInt(METRIC_TRIP_EFFICIENCY, Unit::Kilometers));
 
-  registerTask(bmsTask = new PollTask(mainBus, 200, 500, 0x79B, 0x7BB, 6, bmsQuery));
-  registerTask(slowChargesTask = new PollTask(mainBus, 300000, 500, 0x797, 0x79A, 1, slowChargesQuery));
-  registerTask(quickChargesTask = new PollTask(mainBus, 300000, 500, 0x797, 0x79A, 1, quickChargesQuery));
+  uint8_t bmsReq[3] = {0x02, 0x21, 0x01};
+  bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
+  bmsTask->configureResponse(0x7BB, 6);
+  bmsTask->setInterval(200);
+  bmsTask->setTimeout(500);
+  registerTask(bmsTask);
 
-  //registerTask(sohTask = new PollTask(mainBus, 60000, 500, 0x79B, 0x7BB, 1, sohQuery));
-  //registerTask(vcmChargeTask = new PollTask(mainBus, 1000, 500, 0x797, 0x79A, 1, vcmChargeQuery));
+  uint8_t slowChargesReq[4] = {0x03, 0x22, 0x12, 0x05};
+  slowChargesTask = new PollTask(mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq));
+  slowChargesTask->configureResponse(0x79A, 1);
+  slowChargesTask->setInterval(300000);
+  slowChargesTask->setTimeout(500);
+  registerTask(slowChargesTask);
+
+  uint8_t quickChargesReq[4] = {0x03, 0x22, 0x12, 0x03};
+  quickChargesTask = new PollTask(mainBus, 0x797, quickChargesReq, sizeof(quickChargesReq));
+  quickChargesTask->configureResponse(0x79A, 1);
+  quickChargesTask->setInterval(300000);
+  quickChargesTask->setTimeout(500);
+  registerTask(quickChargesTask);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData)
@@ -149,7 +163,10 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
   }
 }
 
-void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {
+void VehicleNissanLeaf::processPollResponse(
+  CanBus *bus, PollTask *task, uint8_t frames[][CAN_FRAME_MAX_DATA_LEN]
+)
+{
   if (task == bmsTask)
   {
     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));

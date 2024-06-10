@@ -19,11 +19,7 @@ class SerialTerminal
     uint8_t cmdArgIndex = 0;
     bool cmdArgReceived = false;
 
-    uint8_t emptyData[8] = {0x00};
-    uint8_t bcmRequest[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t doorsRequest[8] = {0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t climateOnRequest[8] = {0x4E, 0x08, 0x12, 0x00};
-    uint8_t climateOffRequest[8] = {0x56, 0x08, 0x12, 0x00};
+    uint8_t emptyData[8] = {};
 };
 
 extern SerialTerminal GlobalSerialTerminal;

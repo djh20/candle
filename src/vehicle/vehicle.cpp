@@ -72,9 +72,9 @@ void Vehicle::processBusData()
       {
         log_i(
           "[%03X] (%u): %02X %02X %02X %02X %02X %02X %02X %02X",
-          bus->frameId, bus->frameLen, bus->frameData[0], bus->frameData[1], bus->frameData[2], 
-          bus->frameData[3], bus->frameData[4], bus->frameData[5], bus->frameData[6], 
-          bus->frameData[7]
+          bus->frameId, bus->frameDataLen, bus->frameData[0], bus->frameData[1],
+          bus->frameData[2], bus->frameData[3], bus->frameData[4], bus->frameData[5],
+          bus->frameData[6], bus->frameData[7]
         );
       }
       
@@ -82,7 +82,7 @@ void Vehicle::processBusData()
 
       if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
       {
-        currentTask->processFrame(bus->frameData);
+        currentTask->processFrame(bus->frameData, bus->frameDataLen);
       }
     }
   }
@@ -100,7 +100,7 @@ void Vehicle::processTasks()
 
       if (currentTask->lastRunWasSuccessful)
       {
-        processPollResponse(currentTask->bus, currentTask, currentTask->buffer);
+        processPollResponse(currentTask->bus, currentTask, currentTask->resBuffer);
       }
 
       // Move queue forward.
@@ -146,7 +146,7 @@ void Vehicle::setMonitoredMessageId(uint16_t id)
 
 void Vehicle::registerAll() {}
 void Vehicle::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData) {}
-void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]) {}
+void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}
 void Vehicle::testCycle() {}

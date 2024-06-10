@@ -1,21 +1,51 @@
 #include "poll_task.h"
 
 PollTask::PollTask(
-  CanBus *bus, int32_t interval, uint32_t timeout, uint16_t reqId, 
-  uint16_t resId, uint8_t expectedResFrames, uint8_t *query, 
-  uint8_t queryLen, bool enabled
+  CanBus *bus, uint16_t reqId, uint8_t *reqData, uint8_t reqDataLen
 )
 {
   this->bus = bus;
-  this->interval = interval;
-  this->timeout = timeout;
   this->reqId = reqId;
-  this->resId = resId;
-  this->expectedResFrames = expectedResFrames;
-  this->queryLen = queryLen;
-  this->enabled = enabled;
+  this->reqDataLen = reqDataLen;
   
-  memcpy(this->query, query, CAN_BUS_FRAME_DATA_LEN);
+  memset(this->reqData, 0, sizeof(this->reqData));
+  memcpy(this->reqData, reqData, reqDataLen);
+}
+
+PollTask::~PollTask()
+{
+  if (expectedResFrameCount == 0) return;
+
+  // Free each sub-array
+  for(uint8_t i = 0; i < expectedResFrameCount; i++) {
+    delete[] resBuffer[i];
+  }
+
+  delete[] resBuffer;
+}
+
+void PollTask::configureResponse(uint16_t id, uint8_t totalFrames)
+{
+  if (totalFrames == 0 || expectedResFrameCount > 0) return;
+
+  resId = id;
+  expectedResFrameCount = totalFrames;
+
+  resBuffer = new uint8_t*[totalFrames];
+  for (uint8_t i = 0; i < totalFrames; i++)
+  {
+    resBuffer[i] = new uint8_t[CAN_FRAME_MAX_DATA_LEN];
+  }
+}
+
+void PollTask::setInterval(uint32_t interval)
+{
+  this->interval = interval;
+}
+
+void PollTask::setTimeout(uint32_t timeout)
+{
+  this->timeout = timeout;
 }
 
 bool PollTask::run()
@@ -28,16 +58,16 @@ bool PollTask::run()
 
   if (runLimitEnabled) runsRemaining--;
 
-  numResponseFrames = 0;
-  memset(bufferTracker, 0, expectedResFrames);
+  currentResFrameCount = 0;
+  resBufferTracker = 0;
   
   log_i(
-    "Sending request: %03X %02X %02X %02X %02X %02X %02X %02X %02X",
-    reqId, query[0], query[1], query[2], query[3],
-    query[4], query[5], query[6], query[7]
+    "Request: %03X %02X %02X %02X %02X %02X %02X %02X %02X",
+    reqId, reqData[0], reqData[1], reqData[2], reqData[3],
+    reqData[4], reqData[5], reqData[6], reqData[7]
   );
 
-  bus->mcp->sendMsgBuf(reqId, queryLen, query);
+  bus->mcp->sendMsgBuf(reqId, reqDataLen, reqData);
 
   return true;
 }
@@ -57,7 +87,7 @@ bool PollTask::isFinished()
 
 bool PollTask::canRunAgain()
 {
-  return interval >= 0 && (!runLimitEnabled || runsRemaining > 0);
+  return !runLimitEnabled || runsRemaining > 0;
 }
 
 void PollTask::success()
@@ -84,26 +114,32 @@ void PollTask::setRunLimit(uint16_t limit)
   runLimitEnabled = true;
 }
 
-void PollTask::processFrame(uint8_t *frameData)
+void PollTask::waitUntilNextInterval()
 {
-  if (!running) return;
+  lastRunWasSuccessful = true;
+  lastSuccessMillis = millis();
+}
+
+void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
+{
+  if (!running || expectedResFrameCount == 0) return;
 
   // The index where the incoming frame will be stored in the buffer.
   uint8_t bufferIndex = 0;
 
   // Only calculate buffer index if we are expecting multiple frames.
-  if (expectedResFrames > 1) {
-    if (frameData[0] >= query[1]) // Frames after flow control msg.
+  if (expectedResFrameCount > 1) {
+    if (frameData[0] >= reqData[1]) // Frames after flow control msg.
     {
-      bufferIndex = frameData[0] - query[1] + 1;
+      bufferIndex = frameData[0] - reqData[1] + 1;
     }
     else if (frameData[0] != 0x10) // 0x10 is first frame.
     {
       return; // Ignore frame.
     }
   }
-
-  if (bufferIndex > expectedResFrames-1) return;
+  
+  if (bufferIndex >= expectedResFrameCount) return;
 
   log_i(
     "Response (%u): %03X %02X %02X %02X %02X %02X %02X %02X %02X",
@@ -113,26 +149,27 @@ void PollTask::processFrame(uint8_t *frameData)
   );
 
   // Keep track of which areas of the buffer have been filled.
-  // This is necessary because new frames can overwrite old frames 
-  // if additional responses are received due to another request
-  // happening on the bus as the same time.
-  if (bufferTracker[bufferIndex] == false) {
-    bufferTracker[bufferIndex] = true;
-    numResponseFrames++;
+  // This is necessary because new response frames can overwrite old frames if
+  // they have the same first byte / buffer index, but we still need to know
+  // the actual frame count.
+  if (((resBufferTracker >> bufferIndex) & 0x01) == 0) {
+    resBufferTracker |= (1 << bufferIndex);
+    currentResFrameCount++;
   }
 
   // Copy frame data to buffer at specified index.
-  for (uint8_t i = 0; i < queryLen; i++)
+  for (uint8_t i = 0; i < CAN_FRAME_MAX_DATA_LEN; i++)
   {
-    buffer[bufferIndex][i] = frameData[i];
+    resBuffer[bufferIndex][i] = frameData[i];
   }
   
-  if (numResponseFrames >= expectedResFrames) 
+  if (currentResFrameCount >= expectedResFrameCount) 
   {
     success();
   }
   else if (frameData[0] == 0x10) 
   {
     bus->sendFlowControl(reqId);
+    log_i("Sent flow control frame");
   }
 }

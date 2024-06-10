@@ -1,8 +1,10 @@
 #include "can_bus.h"
 #include <Arduino.h>
 
-CanBus::CanBus(uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
-                uint8_t speedset, uint8_t clockset)
+CanBus::CanBus(
+  uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
+  uint8_t speedset, uint8_t clockset
+)
 {
   this->csPin = csPin;
   this->intPin = intPin;
@@ -24,7 +26,7 @@ bool CanBus::readFrame()
   if (digitalRead(intPin)) return false;
 
   memset(frameData, 0, sizeof(frameData));
-  mcp->readMsgBuf(&frameId, &frameLen, frameData);
+  mcp->readMsgBuf(&frameId, &frameDataLen, frameData);
   return true;
 }
 

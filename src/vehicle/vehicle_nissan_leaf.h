@@ -49,12 +49,7 @@ class VehicleNissanLeaf: public Vehicle
     uint32_t odometerAtLastCharge = 0;
     uint16_t rangeAtLastCharge = 0;
 
-    uint8_t bmsQuery[8] = {0x02, 0x21, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00};
     PollTask *bmsTask;
-
-    uint8_t quickChargesQuery[8] = {0x03, 0x22, 0x12, 0x03, 0x00, 0x00, 0x00, 0x00};
-    PollTask *quickChargesTask;
-
-    uint8_t slowChargesQuery[8] = {0x03, 0x22, 0x12, 0x05, 0x00, 0x00, 0x00, 0x00};
     PollTask *slowChargesTask;
+    PollTask *quickChargesTask;
 };

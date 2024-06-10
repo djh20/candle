@@ -38,7 +38,7 @@ class Vehicle
     void processTasks();
     virtual void registerAll();
     virtual void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
-    virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]);
+    virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
     virtual void updateExtraMetrics();
     virtual void metricUpdated(Metric *metric);
     virtual void testCycle();
