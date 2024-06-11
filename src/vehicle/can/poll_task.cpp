@@ -60,14 +60,14 @@ bool PollTask::run()
 
   currentResFrameCount = 0;
   resBufferTracker = 0;
-  
+
   log_i(
-    "Request: %03X %02X %02X %02X %02X %02X %02X %02X %02X",
+    "Request: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
     reqId, reqData[0], reqData[1], reqData[2], reqData[3],
-    reqData[4], reqData[5], reqData[6], reqData[7]
+    reqData[4], reqData[5], reqData[6], reqData[7], reqDataLen
   );
 
-  bus->mcp->sendMsgBuf(reqId, reqDataLen, reqData);
+  bus->sendFrame(reqId, reqData, reqDataLen);
 
   return true;
 }
@@ -142,10 +142,10 @@ void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
   if (bufferIndex >= expectedResFrameCount) return;
 
   log_i(
-    "Response (%u): %03X %02X %02X %02X %02X %02X %02X %02X %02X",
-    bufferIndex, resId, frameData[0], frameData[1],
-    frameData[2], frameData[3], frameData[4],
-    frameData[5], frameData[6], frameData[7]
+    "Response #%u: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
+    bufferIndex+1, resId, frameData[0], frameData[1],
+    frameData[2], frameData[3], frameData[4], frameData[5],
+    frameData[6], frameData[7], frameDataLen
   );
 
   // Keep track of which areas of the buffer have been filled.
@@ -158,7 +158,7 @@ void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
   }
 
   // Copy frame data to buffer at specified index.
-  for (uint8_t i = 0; i < CAN_FRAME_MAX_DATA_LEN; i++)
+  for (uint8_t i = 0; i < frameDataLen; i++)
   {
     resBuffer[bufferIndex][i] = frameData[i];
   }

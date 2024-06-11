@@ -39,7 +39,7 @@ class PollTask
     uint32_t interval = 0;
     uint32_t timeout = 0;
     uint16_t reqId;
-    uint16_t resId = 0x0000;
+    uint16_t resId = 0;
 
     uint8_t **resBuffer;
 

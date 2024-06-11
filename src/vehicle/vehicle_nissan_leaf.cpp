@@ -40,21 +40,21 @@ void VehicleNissanLeaf::registerAll()
   registerMetric(tripDistance = new MetricInt(METRIC_TRIP_DISTANCE, Unit::Kilometers));
   registerMetric(tripEfficiency = new MetricInt(METRIC_TRIP_EFFICIENCY, Unit::Kilometers));
 
-  uint8_t bmsReq[3] = {0x02, 0x21, 0x01};
+  uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
   bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsTask->configureResponse(0x7BB, 6);
   bmsTask->setInterval(200);
   bmsTask->setTimeout(500);
   registerTask(bmsTask);
 
-  uint8_t slowChargesReq[4] = {0x03, 0x22, 0x12, 0x05};
+  uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargesTask = new PollTask(mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq));
   slowChargesTask->configureResponse(0x79A, 1);
   slowChargesTask->setInterval(300000);
   slowChargesTask->setTimeout(500);
   registerTask(slowChargesTask);
 
-  uint8_t quickChargesReq[4] = {0x03, 0x22, 0x12, 0x03};
+  uint8_t quickChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
   quickChargesTask = new PollTask(mainBus, 0x797, quickChargesReq, sizeof(quickChargesReq));
   quickChargesTask->configureResponse(0x79A, 1);
   quickChargesTask->setInterval(300000);

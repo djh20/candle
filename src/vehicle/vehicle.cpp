@@ -68,16 +68,6 @@ void Vehicle::processBusData()
 
     if (bus->readFrame()) 
     {
-      if (bus->frameId == monitoredMessageId || monitoredMessageId == 0xFFFF)
-      {
-        log_i(
-          "[%03X] (%u): %02X %02X %02X %02X %02X %02X %02X %02X",
-          bus->frameId, bus->frameDataLen, bus->frameData[0], bus->frameData[1],
-          bus->frameData[2], bus->frameData[3], bus->frameData[4], bus->frameData[5],
-          bus->frameData[6], bus->frameData[7]
-        );
-      }
-      
       processFrame(bus, bus->frameId, bus->frameData);
 
       if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
@@ -137,11 +127,6 @@ void Vehicle::processTasks()
       break;
     }
   }
-}
-
-void Vehicle::setMonitoredMessageId(uint16_t id)
-{
-  monitoredMessageId = id;
 }
 
 void Vehicle::registerAll() {}

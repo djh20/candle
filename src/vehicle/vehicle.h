@@ -18,7 +18,6 @@ class Vehicle
     void loop();
 
     void registerTask(PollTask *task);
-    void setMonitoredMessageId(uint16_t id);
 
     MetricInt *awake;
 
@@ -48,5 +47,4 @@ class Vehicle
 
   private:
     uint32_t lastTestCycleMillis = 0;
-    uint16_t monitoredMessageId = 0xFFFE;
 };
