@@ -35,7 +35,7 @@ class VehicleNissanLeaf: public Vehicle
   protected:
     void registerAll();
     void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
-    void processPollResponse(CanBus *bus, PollTask *task, uint8_t frames[][8]);
+    void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
     void updateExtraMetrics();
     void metricUpdated(Metric *metric);
     void testCycle();

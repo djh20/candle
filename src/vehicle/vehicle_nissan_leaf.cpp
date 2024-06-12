@@ -163,9 +163,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, ui
   }
 }
 
-void VehicleNissanLeaf::processPollResponse(
-  CanBus *bus, PollTask *task, uint8_t frames[][CAN_FRAME_MAX_DATA_LEN]
-)
+void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames)
 {
   if (task == bmsTask)
   {
