@@ -131,75 +131,24 @@ void SerialTerminal::runCommand()
       task->setEnabled(true);
       vehicle->registerTask(task);
     }
-    else if (cmdArgs[0] == 2) // Wake without opening charge port
+    else if (cmdArgs[0] == 2) // Wake VCM to enable CAR-CAN to EV-CAN gateway
     {
+      // We must rapidly send these messages to ensure the VCM stays awake
+      // (we are fighting against the BCM).
+
+      // Generic wake up message
       PollTask *task = new PollTask(bus, 0x682, emptyReq, 1);
-      task->setRunLimit(1);
-      task->setTimeout(80);
+      task->setRunLimit(400);
+      task->setInterval(10);
       task->setEnabled(true);
       vehicle->registerTask(task);
 
-      task = new PollTask(bus, 0x358, req358, sizeof(req358));
-      task->setRunLimit(1);
+      // Spoof BCM 'sleep wake up signal'
+      task = new PollTask(bus, 0x35D, wakeSignalReq, sizeof(wakeSignalReq));
+      task->setRunLimit(400);
+      task->setInterval(10);
       task->setEnabled(true);
       vehicle->registerTask(task);
-
-      task = new PollTask(bus, 0x35D, req35D, sizeof(req35D));
-      task->setRunLimit(20);
-      task->setInterval(50);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x60D, emptyReq, sizeof(req60D));
-      // task->setRunLimit(20);
-      // task->setInterval(50);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-      
-      task = new PollTask(bus, 0x79B, bmsReq, sizeof(bmsReq));
-      // task->configureResponse(0x7BB, 6);
-      task->setRunLimit(1);
-      // task->setTimeout(500);
-      task->setInterval(500);
-      task->waitUntilNextInterval();
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x60D, req60D, sizeof(req60D));
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x5EB, req5EB, sizeof(req5EB));
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x56E, req56E, sizeof(req56E));
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x509, req509, sizeof(req509));
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x5E3, req5E3, sizeof(req5E3));
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
-
-      // task = new PollTask(bus, 0x4F2, emptyReq, 4);
-      // task->setRunLimit(10);
-      // task->setInterval(100);
-      // task->setEnabled(true);
-      // vehicle->registerTask(task);
     }
   }
 }
