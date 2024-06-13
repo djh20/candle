@@ -39,5 +39,5 @@ class CanBus
   private:
     void addFrameToCapture(uint16_t id, uint8_t *data, uint8_t dataLen, bool tx = false);
 
-    uint16_t monitoredMessageId = 0;
+    uint16_t monitoredMessageId = 0xFFFE;
 };

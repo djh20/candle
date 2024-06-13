@@ -86,8 +86,6 @@ void Vehicle::processTasks()
   {
     if (currentTask->isFinished())
     {
-      log_i("Task finished");
-
       if (currentTask->lastRunWasSuccessful)
       {
         processPollResponse(currentTask->bus, currentTask, currentTask->resBuffer);

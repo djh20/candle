@@ -67,7 +67,10 @@ bool PollTask::run()
     reqData[4], reqData[5], reqData[6], reqData[7], reqDataLen
   );
 
-  bus->sendFrame(reqId, reqData, reqDataLen);
+  if (bus->sendFrame(reqId, reqData, reqDataLen) && expectedResFrameCount == 0)
+  {
+    success();
+  }
 
   return true;
 }
@@ -140,6 +143,9 @@ void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
   }
   
   if (bufferIndex >= expectedResFrameCount) return;
+
+  // uint8_t keepAliveReq[8] = {0x00, 0x03};
+  // bus->sendFrame(0x35D, keepAliveReq, sizeof(keepAliveReq));
 
   log_i(
     "Response #%u: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",

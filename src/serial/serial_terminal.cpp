@@ -53,26 +53,29 @@ void SerialTerminal::runCommand()
     log_i("Running request command...");
 
     uint8_t busId = cmdArgs[0];
-    log_i("Bus ID: %u", busId);
+    // log_i("Bus ID: %u", busId);
     
     uint16_t resId = cmdArgs[1];
-    log_i("Response ID: %03X", resId);
+    // log_i("Response ID: %03X", resId);
 
     uint16_t reqId = cmdArgs[2];
-    log_i("Request ID: %03X", reqId);
+    // log_i("Request ID: %03X", reqId);
 
-    uint8_t reqData[CAN_FRAME_MAX_DATA_LEN];
-    for (uint8_t i = 0; i < sizeof(reqData); i++)
+    uint8_t reqDataLen = cmdArgs[3];
+    // log_i("Request Length: %03X", reqId);
+
+    uint8_t reqData[reqDataLen];
+    for (uint8_t i = 0; i < reqDataLen; i++)
     {
-      reqData[i] = cmdArgs[i+3];
+      reqData[i] = cmdArgs[i+4];
     }
 
     PollTask *task = new PollTask(
-      vehicle->buses[busId], reqId, reqData, sizeof(reqData)
+      vehicle->buses[busId], reqId, reqData, reqDataLen
     );
 
     task->configureResponse(resId, 10);
-    task->setTimeout(500);
+    task->setTimeout(400);
     task->setRunLimit(1);
     task->setEnabled(true);
 
@@ -114,71 +117,89 @@ void SerialTerminal::runCommand()
 
     CanBus *bus = vehicle->buses[0];
 
-    if (cmdArgs[0] == 1) // Wake (from OVMS)
+    if (cmdArgs[0] == 1) // Open Charge Port
     {
-      PollTask *task = new PollTask(bus, 0x679, emptyData, 1);
-      task->setRunLimit(2);
-      task->setTimeout(10);
+      PollTask *task = new PollTask(bus, 0x682, emptyReq, 1);
+      task->setRunLimit(1);
+      task->setTimeout(80);
       task->setEnabled(true);
       vehicle->registerTask(task);
 
-      task = new PollTask(bus, 0x5C0, emptyData, 8);
-      task->setRunLimit(1);
-      task->setInterval(30);
-      task->waitUntilNextInterval();
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-    }
-    else if (cmdArgs[0] == 2) // Open Charge Port
-    {
-      PollTask *task = new PollTask(bus, 0x682, emptyData, 1);
-      task->setRunLimit(1);
+      task = new PollTask(bus, 0x35D, chargePortReq, sizeof(chargePortReq));
+      task->setRunLimit(2);
       task->setTimeout(50);
       task->setEnabled(true);
       vehicle->registerTask(task);
+    }
+    else if (cmdArgs[0] == 2) // Wake without opening charge port
+    {
+      PollTask *task = new PollTask(bus, 0x682, emptyReq, 1);
+      task->setRunLimit(1);
+      task->setTimeout(80);
+      task->setEnabled(true);
+      vehicle->registerTask(task);
 
-      task = new PollTask(bus, 0x351, req351, sizeof(req351));
+      task = new PollTask(bus, 0x358, req358, sizeof(req358));
       task->setRunLimit(1);
       task->setEnabled(true);
       vehicle->registerTask(task);
 
       task = new PollTask(bus, 0x35D, req35D, sizeof(req35D));
-      task->setRunLimit(1);
-      task->setTimeout(50);
-      // task->configureResponse(0x216, 1);
+      task->setRunLimit(20);
+      task->setInterval(50);
       task->setEnabled(true);
       vehicle->registerTask(task);
 
-      task = new PollTask(bus, 0x625, req625, sizeof(req625));
-      task->setRunLimit(1);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-    }
-    else if (cmdArgs[0] == 3) // Emulating BCM wake up from door opening
-    {
-      PollTask *task = new PollTask(bus, 0x682, emptyData, 1);
-      task->setRunLimit(1);
-      task->setTimeout(50);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      task = new PollTask(bus, 0x35D, req35D, 8);
-      task->setRunLimit(1);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      task = new PollTask(bus, 0x60D, bcmVehicleStateData, 8);
-      task->setRunLimit(1);
-      task->setTimeout(50);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
+      // task = new PollTask(bus, 0x60D, emptyReq, sizeof(req60D));
+      // task->setRunLimit(20);
+      // task->setInterval(50);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+      
       task = new PollTask(bus, 0x79B, bmsReq, sizeof(bmsReq));
-      task->configureResponse(0x7BB, 6);
+      // task->configureResponse(0x7BB, 6);
       task->setRunLimit(1);
-      task->setTimeout(1000);
+      // task->setTimeout(500);
+      task->setInterval(500);
+      task->waitUntilNextInterval();
       task->setEnabled(true);
       vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x60D, req60D, sizeof(req60D));
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x5EB, req5EB, sizeof(req5EB));
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x56E, req56E, sizeof(req56E));
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x509, req509, sizeof(req509));
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x5E3, req5E3, sizeof(req5E3));
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
+
+      // task = new PollTask(bus, 0x4F2, emptyReq, 4);
+      // task->setRunLimit(10);
+      // task->setInterval(100);
+      // task->setEnabled(true);
+      // vehicle->registerTask(task);
     }
   }
 }
