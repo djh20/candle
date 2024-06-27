@@ -3,18 +3,15 @@
 
 #define TEST_CYCLE_INTERVAL 200U
 
-Vehicle::Vehicle() {}
-
 void Vehicle::begin()
 {
   registerMetric(awake = new MetricInt(METRIC_AWAKE, Unit::None));
-  registerAll();
 }
 
 void Vehicle::loop()
 {
-  processBusData();
-  processTasks();
+  handleBuses();
+  handleTasks();
 
   #ifdef TEST_MODE
   uint32_t now = millis();
@@ -33,7 +30,7 @@ void Vehicle::registerBus(CanBus *bus)
   buses[totalBuses] = bus;
   totalBuses++;
 
-  bus->init();
+  bus->begin();
 
   if (!bus->initialized) {
     log_e("Failed to initialize bus %u", totalBuses-1);
@@ -54,82 +51,96 @@ void Vehicle::registerMetric(Metric *metric)
   log_i("Registered metric %04X", metric->id);
 }
 
-void Vehicle::registerTask(PollTask *task)
+void Vehicle::handleBuses()
 {
-  log_i("Registered task %u", totalTasks);
-  tasks[totalTasks++] = task;
-}
-
-void Vehicle::processBusData()
-{
-  for (uint8_t busIndex = 0; busIndex < totalBuses; busIndex++) 
+  for (uint8_t i = 0; i < totalBuses; i++) 
   {
-    CanBus *bus = buses[busIndex];
+    CanBus *bus = buses[i];
+    bus->readIncomingFrame();
 
-    if (bus->readFrame()) 
+    if (bus->receivedFrame)
     {
-      processFrame(bus, bus->frameId, bus->frameData);
-
-      if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
-      {
-        currentTask->processFrame(bus->frameData, bus->frameDataLen);
-      }
+      processFrame(bus, bus->frame.can_id, bus->frame.data);
     }
+
+    // if (bus->readFrame()) 
+    // {
+    //   processFrame(bus, bus->frameId, bus->frameData);
+
+    //   if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
+    //   {
+    //     currentTask->processFrame(bus->frameData, bus->frameDataLen);
+    //   }
+    // }
   }
 }
 
-void Vehicle::processTasks()
+void Vehicle::runTask(Task *task)
 {
-  uint32_t now = millis();
+  taskQueue[totalTasksInQueue++] = task;
+}
+
+void Vehicle::performAction(uint8_t action) {}
+
+void Vehicle::handleTasks()
+{
+  // uint32_t now = millis();
+
+  if (!currentTask && totalTasksInQueue > 0)
+  {
+    currentTask = taskQueue[0];
+    currentTask->run();
+  }
 
   if (currentTask)
   {
-    if (currentTask->isFinished())
+    currentTask->tick();
+
+    if (!currentTask->isRunning())
     {
-      if (currentTask->lastRunWasSuccessful)
-      {
-        processPollResponse(currentTask->bus, currentTask, currentTask->resBuffer);
-      }
+      // if (currentTask->lastRunWasSuccessful)
+      // {
+      //   processPollResponse(currentTask->bus, currentTask, currentTask->resBuffer);
+      // }
 
       // Move queue forward.
-      for (uint8_t i = currentTaskIndex; i < totalTasks; i++)
+      for (uint8_t i = 0; i < totalTasksInQueue; i++)
       {
-        tasks[i] = tasks[i+1];
+        taskQueue[i] = taskQueue[i+1];
       }
 
+      totalTasksInQueue--;
+
       // Only add task back to queue if it's able to run again in the future.
-      if (currentTask->canRunAgain())
-      {
-        tasks[totalTasks-1] = currentTask;
-      }
-      else
-      {
-        log_i("Deleted task");
-        totalTasks--;
-        delete currentTask;
-      }
+      // if (currentTask->canRunAgain())
+      // {
+      //   tasks[totalTasks-1] = currentTask;
+      // }
+      // else
+      // {
+      //   log_i("Deleted task");
+      //   totalTasks--;
+      //   delete currentTask;
+      // }
 
       currentTask = NULL;
     }
-
-    return;
   }
 
-  for (uint8_t i = 0; i < totalTasks; i++)
-  {
-    PollTask* task = tasks[i];
-    if (task->run())
-    {
-      currentTask = task;
-      currentTaskIndex = i;
-      break;
-    }
-  }
+  // for (uint8_t i = 0; i < totalTasksInQueue; i++)
+  // {
+  //   Task* task = taskQueue[i];
+  //   if (task->run())
+  //   {
+  //     currentTask = task;
+  //     currentTaskIndex = i;
+  //     break;
+  //   }
+  // }
 }
 
-void Vehicle::registerAll() {}
-void Vehicle::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData) {}
-void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames) {}
+void Vehicle::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}
+// void Vehicle::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}
 void Vehicle::testCycle() {}

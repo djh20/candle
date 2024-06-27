@@ -1,61 +1,67 @@
 #include "can_bus.h"
 #include <Arduino.h>
 
-CanBus::CanBus(
-  uint8_t csPin, uint8_t intPin, uint8_t idmodeset, 
-  uint8_t speedset, uint8_t clockset
-)
+CanBus::CanBus(uint8_t csPin, uint8_t intPin, CAN_SPEED bitrate)
 {
   this->csPin = csPin;
   this->intPin = intPin;
-  this->idmodeset = idmodeset;
-  this->speedset = speedset;
-  this->clockset = clockset;
+  this->bitrate = bitrate;
 }
 
-void CanBus::init() {
+void CanBus::begin() 
+{
   pinMode(intPin, INPUT);
 
-  mcp = new MCP_CAN(csPin);
-  if (mcp->begin(idmodeset, speedset, clockset) != CAN_OK) return;
-  
-  mcp->setMode(MCP_NORMAL);
+  mcp = new MCP2515(csPin);
+
+  // Abort function if MCP2515 fails to initialize.
+  if (mcp->reset() || mcp->setBitrate(bitrate, MCP_8MHZ) || mcp->setNormalMode()) return;
+
   initialized = true;
 }
 
-bool CanBus::readFrame() 
+void CanBus::readIncomingFrame()
 {
-  if (digitalRead(intPin)) return false; // INT pin must be low
-
-  memset(frameData, 0, sizeof(frameData));
-  if (mcp->readMsgBuf(&frameId, &frameDataLen, frameData) != CAN_OK) return false;
-
-  if (frameId == monitoredMessageId || monitoredMessageId == 0xFFFF)
+  receivedFrame = false;
+  
+  if (!digitalRead(intPin)) // INT pin must be low
   {
-    log_i(
-      "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
-      frameId, frameData[0], frameData[1], frameData[2], frameData[3], 
-      frameData[4], frameData[5], frameData[6], frameData[7], frameDataLen
-    );
+    // Set all bytes in data buffer to zero. This is not necessary and is only used
+    // to avoid showing data from previous frames when displaying all 8 bytes.
+    memset(frame.data, 0, sizeof(frame.data));
+
+    if (mcp->readMessage(&frame) == MCP2515::ERROR_OK)
+    {
+      if (frame.can_id == monitoredMessageId || monitoredMessageId == 0xFFFF)
+      {
+        log_i(
+          "[%03X]: %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
+          frame.can_id, frame.data[0], frame.data[1], frame.data[2], frame.data[3], 
+          frame.data[4], frame.data[5], frame.data[6], frame.data[7], frame.can_dlc
+        );
+      }
+
+      addFrameToCapture(&frame);
+
+      receivedFrame = true;
+    }
   }
-
-  addFrameToCapture(frameId, frameData, frameDataLen);
-
-  return true;
 }
 
-bool CanBus::sendFrame(uint16_t id, uint8_t *data, uint8_t dataLen)
+bool CanBus::sendFrame(uint32_t id, uint8_t *data, uint8_t dlc)
 {
-  uint8_t result = mcp->sendMsgBuf(id, dataLen, data);
+  txFrame.can_id = id;
+  txFrame.can_dlc = dlc;
+  memcpy(txFrame.data, data, dlc);
 
-  if (result == CAN_OK)
+  if (mcp->sendMessage(&txFrame) == MCP2515::ERROR_OK)
   {
-    addFrameToCapture(id, data, dataLen, true);
+    addFrameToCapture(&txFrame, true);
     return true;
   }
   else
   {
-    log_e("Failed to send CAN frame (id: %03X)", id);
+    log_w("Failed to verify transmission of CAN frame (id: %03X)", id);
     return false;
   }
 }
@@ -65,10 +71,9 @@ void CanBus::setMonitoredMessageId(uint16_t id)
   monitoredMessageId = id;
 }
 
-void CanBus::sendFlowControl(uint32_t frameId)
+void CanBus::sendFlowControl(uint32_t id)
 {
-  uint8_t data[8] = {0x30, 0x00, 0x10, 0x00, 0x00, 0x00, 0x00, 0x00};
-  mcp->sendMsgBuf(frameId, 8, data);
+  sendFrame(id, flowControlData, sizeof(flowControlData));
 }
 
 void CanBus::capture()
@@ -79,7 +84,7 @@ void CanBus::capture()
   capturing = true;
 }
 
-void CanBus::addFrameToCapture(uint16_t id, uint8_t *data, uint8_t dataLen, bool tx)
+void CanBus::addFrameToCapture(can_frame *frame, bool tx)
 {
   if (!capturing) return;
 
@@ -87,12 +92,12 @@ void CanBus::addFrameToCapture(uint16_t id, uint8_t *data, uint8_t dataLen, bool
   uint8_t *captureSubBuffer = captureBuffer[captureBufferIndex];
   captureSubBuffer[0] = ms >> 8;
   captureSubBuffer[1] = ms;
-  captureSubBuffer[2] = id >> 8;
-  captureSubBuffer[3] = id;
-  captureSubBuffer[4] = (dataLen << 1) | tx;
-  memcpy(captureSubBuffer+5, data, dataLen);
+  captureSubBuffer[2] = frame->can_id >> 8;
+  captureSubBuffer[3] = frame->can_id;
+  captureSubBuffer[4] = (frame->can_dlc << 1) | tx;
+  memcpy(captureSubBuffer+5, frame->data, frame->can_dlc);
 
-  if (++captureBufferIndex >= CAN_CAPTURE_BUFFER_LEN)
+  if (++captureBufferIndex >= CAN_CAP_LEN)
   {
     capturing = false;
   }

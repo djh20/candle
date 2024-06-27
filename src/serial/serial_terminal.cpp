@@ -1,6 +1,7 @@
 #include "serial_terminal.h"
 #include "../utils.h"
 #include "../vehicle/vehicle_manager.h"
+#include "../vehicle/vehicle_nissan_leaf.h"
 
 void SerialTerminal::loop()
 {
@@ -75,11 +76,13 @@ void SerialTerminal::runCommand()
     );
 
     task->configureResponse(resId, 10);
-    task->setTimeout(400);
-    task->setRunLimit(1);
-    task->setEnabled(true);
+    task->maxAttemptDuration = 500;
+    task->onFinish = [task]() {
+      log_i("Deleting task");
+      delete task;
+    };
 
-    vehicle->registerTask(task);
+    vehicle->runTask(task);
   }
   else if (strncmp(cmdId, "MON", SERIAL_CMD_ID_LEN) == 0) 
   {
@@ -94,7 +97,7 @@ void SerialTerminal::runCommand()
   {
     CanBus *bus = vehicle->buses[cmdArgs[0]];
     
-    for (uint8_t i = 0; i < CAN_CAPTURE_BUFFER_LEN; i++)
+    for (uint8_t i = 0; i < CAN_CAP_LEN; i++)
     {
       uint8_t *frame = bus->captureBuffer[i];
       uint16_t ms = (frame[0] << 8) | frame[1];
@@ -110,46 +113,12 @@ void SerialTerminal::runCommand()
       );
     }
   }
-  else if (strncmp(cmdId, "TST", SERIAL_CMD_ID_LEN) == 0) 
+  else if (strncmp(cmdId, "ACT", SERIAL_CMD_ID_LEN) == 0) 
   {
     Vehicle *vehicle = GlobalVehicleManager.getVehicle();
     if (!vehicle) return;
 
-    CanBus *bus = vehicle->buses[0];
-
-    if (cmdArgs[0] == 1) // Open Charge Port
-    {
-      PollTask *task = new PollTask(bus, 0x682, emptyReq, 1);
-      task->setRunLimit(1);
-      task->setTimeout(80);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      task = new PollTask(bus, 0x35D, chargePortReq, sizeof(chargePortReq));
-      task->setRunLimit(2);
-      task->setTimeout(50);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-    }
-    else if (cmdArgs[0] == 2) // Wake VCM to enable CAR-CAN to EV-CAN gateway
-    {
-      // We must rapidly send these messages to ensure the VCM stays awake
-      // (we are fighting against the BCM).
-
-      // Generic wake up message
-      PollTask *task = new PollTask(bus, 0x682, emptyReq, 1);
-      task->setRunLimit(400);
-      task->setInterval(10);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-
-      // Spoof BCM 'sleep wake up signal'
-      task = new PollTask(bus, 0x35D, wakeSignalReq, sizeof(wakeSignalReq));
-      task->setRunLimit(400);
-      task->setInterval(10);
-      task->setEnabled(true);
-      vehicle->registerTask(task);
-    }
+    vehicle->performAction(cmdArgs[0]);
   }
 }
 

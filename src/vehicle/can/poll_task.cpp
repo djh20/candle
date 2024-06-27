@@ -1,13 +1,11 @@
 #include "poll_task.h"
 
-PollTask::PollTask(
-  CanBus *bus, uint16_t reqId, uint8_t *reqData, uint8_t reqDataLen
-)
+PollTask::PollTask(CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen)
 {
   this->bus = bus;
   this->reqId = reqId;
   this->reqDataLen = reqDataLen;
-  
+
   memset(this->reqData, 0, sizeof(this->reqData));
   memcpy(this->reqData, reqData, reqDataLen);
 }
@@ -24,40 +22,14 @@ PollTask::~PollTask()
   delete[] resBuffer;
 }
 
-void PollTask::configureResponse(uint16_t id, uint8_t totalFrames)
+void PollTask::initiateAttempt()
 {
-  if (totalFrames == 0 || expectedResFrameCount > 0) return;
-
-  resId = id;
-  expectedResFrameCount = totalFrames;
-
-  resBuffer = new uint8_t*[totalFrames];
-  for (uint8_t i = 0; i < totalFrames; i++)
-  {
-    resBuffer[i] = new uint8_t[CAN_FRAME_MAX_DATA_LEN];
-  }
-}
-
-void PollTask::setInterval(uint32_t interval)
-{
-  this->interval = interval;
-}
-
-void PollTask::setTimeout(uint32_t timeout)
-{
-  this->timeout = timeout;
-}
-
-bool PollTask::run()
-{
-  if (!enabled || !bus->initialized) return false;
-  if (lastRunWasSuccessful && millis() - lastSuccessMillis < interval) return false;
+  // if (!bus->initialized) 
+  // {
+  //   endAttempt(false);
+  //   return;
+  // }
   
-  running = true;
-  lastRunMillis = millis();
-
-  if (runLimitEnabled) runsRemaining--;
-
   currentResFrameCount = 0;
   resBufferTracker = 0;
 
@@ -67,76 +39,31 @@ bool PollTask::run()
     reqData[4], reqData[5], reqData[6], reqData[7], reqDataLen
   );
 
-  if (bus->sendFrame(reqId, reqData, reqDataLen) && expectedResFrameCount == 0)
+  bus->sendFrame(reqId, reqData, reqDataLen);
+
+  if (expectedResFrameCount == 0)
   {
-    success();
+    endAttempt(true);
   }
-
-  return true;
 }
 
-bool PollTask::isFinished()
+void PollTask::process()
 {
-  if (!running) return true;
-
-  if (millis() - lastRunMillis >= timeout)
-  {
-    cancel();
-    return true;
-  }
-
-  return false;
-}
-
-bool PollTask::canRunAgain()
-{
-  return !runLimitEnabled || runsRemaining > 0;
-}
-
-void PollTask::success()
-{
-  lastRunWasSuccessful = true;
-  lastSuccessMillis = millis();
-  running = false;
-}
-
-void PollTask::cancel()
-{
-  lastRunWasSuccessful = false;
-  running = false;
-}
-
-void PollTask::setEnabled(bool enabled)
-{
-  this->enabled = enabled;
-}
-
-void PollTask::setRunLimit(uint16_t limit)
-{
-  runsRemaining = limit;
-  runLimitEnabled = true;
-}
-
-void PollTask::waitUntilNextInterval()
-{
-  lastRunWasSuccessful = true;
-  lastSuccessMillis = millis();
-}
-
-void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
-{
-  if (!running || expectedResFrameCount == 0) return;
+  if (!bus->receivedFrame || bus->frame.can_id != resId) return;
+  
+  uint8_t *data = bus->frame.data;
+  uint8_t dataLen = bus->frame.can_dlc;
 
   // The index where the incoming frame will be stored in the buffer.
   uint8_t bufferIndex = 0;
 
   // Only calculate buffer index if we are expecting multiple frames.
   if (expectedResFrameCount > 1) {
-    if (frameData[0] >= reqData[1]) // Frames after flow control msg.
+    if (data[0] >= reqData[1]) // Frames after flow control msg.
     {
-      bufferIndex = frameData[0] - reqData[1] + 1;
+      bufferIndex = data[0] - reqData[1] + 1;
     }
-    else if (frameData[0] != 0x10) // 0x10 is first frame.
+    else if (data[0] != 0x10) // 0x10 is first frame.
     {
       return; // Ignore frame.
     }
@@ -144,14 +71,10 @@ void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
   
   if (bufferIndex >= expectedResFrameCount) return;
 
-  // uint8_t keepAliveReq[8] = {0x00, 0x03};
-  // bus->sendFrame(0x35D, keepAliveReq, sizeof(keepAliveReq));
-
   log_i(
     "Response #%u: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
-    bufferIndex+1, resId, frameData[0], frameData[1],
-    frameData[2], frameData[3], frameData[4], frameData[5],
-    frameData[6], frameData[7], frameDataLen
+    bufferIndex+1, resId, data[0], data[1],data[2], data[3], data[4], data[5],
+    data[6], data[7], dataLen
   );
 
   // Keep track of which areas of the buffer have been filled.
@@ -164,18 +87,33 @@ void PollTask::processFrame(uint8_t *frameData, uint8_t frameDataLen)
   }
 
   // Copy frame data to buffer at specified index.
-  for (uint8_t i = 0; i < frameDataLen; i++)
+  for (uint8_t i = 0; i < dataLen; i++)
   {
-    resBuffer[bufferIndex][i] = frameData[i];
+    resBuffer[bufferIndex][i] = data[i];
   }
   
   if (currentResFrameCount >= expectedResFrameCount) 
   {
-    success();
+    if (onResponse) onResponse(resBuffer);
+    endAttempt(true);
   }
-  else if (frameData[0] == 0x10) 
+  else if (data[0] == 0x10) 
   {
     bus->sendFlowControl(reqId);
     log_i("Sent flow control frame");
+  }
+}
+
+void PollTask::configureResponse(uint32_t id, uint8_t totalFrames)
+{
+  if (totalFrames == 0 || expectedResFrameCount > 0) return;
+
+  resId = id;
+  expectedResFrameCount = totalFrames;
+
+  resBuffer = new uint8_t*[totalFrames];
+  for (uint8_t i = 0; i < totalFrames; i++)
+  {
+    resBuffer[i] = new uint8_t[CAN_MAX_DLEN];
   }
 }

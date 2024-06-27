@@ -10,6 +10,8 @@
 
 void setup() 
 {
+  delay(100);
+
   #ifdef SERIAL_ENABLE
   Serial.begin(115200);
   delay(1000);

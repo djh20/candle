@@ -1,11 +1,14 @@
 #pragma once
 
 #include "vehicle.h"
+#include "can/poll_task.h"
+#include "can/multi_task.h"
 
 class VehicleNissanLeaf: public Vehicle 
 {
   public:
-    VehicleNissanLeaf();
+    void begin();
+    void performAction(uint8_t action);
 
     CanBus *mainBus;
     
@@ -33,9 +36,8 @@ class VehicleNissanLeaf: public Vehicle
     MetricInt *tripEfficiency;
 
   protected:
-    void registerAll();
-    void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
-    void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
+    void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
+    // void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
     void updateExtraMetrics();
     void metricUpdated(Metric *metric);
     void testCycle();
@@ -49,7 +51,22 @@ class VehicleNissanLeaf: public Vehicle
     uint32_t odometerAtLastCharge = 0;
     uint16_t rangeAtLastCharge = 0;
 
+    PollTask *genericWakeTask;
+    PollTask *gatewayWakeTask;
+    MultiTask *keepAwakeTask;
+
     PollTask *bmsTask;
+    MultiTask *fullBmsTask;
+
+    PollTask *chargePortTask;
+    MultiTask *fullChargePortTask;
+
+    PollTask *activateCcTask;
+    MultiTask *fullActivateCcTask;
+
+    PollTask *deactivateCcTask;
+    MultiTask *fullDeactivateCcTask;
+
     PollTask *slowChargesTask;
     PollTask *quickChargesTask;
 };

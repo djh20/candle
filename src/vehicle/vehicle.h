@@ -2,8 +2,8 @@
 
 #include "metric/metric.h"
 #include "can/can_bus.h"
-#include "can/poll_task.h"
-#include <mcp_can.h>
+#include "can/task.h"
+// #include "can/poll_task.h"
 
 #define VEHICLE_MAX_BUSES 4
 #define VEHICLE_MAX_METRICS 64
@@ -12,12 +12,11 @@
 class Vehicle 
 {
   public:
-    Vehicle();
-
-    void begin();
+    virtual void begin();
     void loop();
-
-    void registerTask(PollTask *task);
+    
+    void runTask(Task *task);
+    virtual void performAction(uint8_t action);
 
     MetricInt *awake;
 
@@ -27,23 +26,21 @@ class Vehicle
     Metric *metrics[VEHICLE_MAX_METRICS];
     uint8_t totalMetrics = 0;
 
-    PollTask *tasks[VEHICLE_MAX_TASKS];
-    uint8_t totalTasks = 0;
+    Task *taskQueue[VEHICLE_MAX_TASKS];
+    uint8_t totalTasksInQueue = 0;
 
   protected:
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
-    void processBusData();
-    void processTasks();
-    virtual void registerAll();
-    virtual void processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData);
-    virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
+    void handleBuses();
+    void handleTasks();
+    virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
+    // virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
     virtual void updateExtraMetrics();
     virtual void metricUpdated(Metric *metric);
     virtual void testCycle();
 
-    PollTask *currentTask = NULL;
-    uint8_t currentTaskIndex = 0;
+    Task *currentTask = NULL;
 
   private:
     uint32_t lastTestCycleMillis = 0;

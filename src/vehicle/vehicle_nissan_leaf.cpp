@@ -8,11 +8,11 @@
 #define NOMINAL_PACK_VOLTAGE 360
 #define MAX_SOC_PERCENT 95
 
-VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle() {}
-
-void VehicleNissanLeaf::registerAll()
+void VehicleNissanLeaf::begin()
 {
-  registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, MCP_ANY, CAN_500KBPS, MCP_8MHZ));
+  Vehicle::begin();
+
+  registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, CAN_500KBPS));
 
   registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None));
   registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium));
@@ -39,134 +39,29 @@ void VehicleNissanLeaf::registerAll()
 
   registerMetric(tripDistance = new MetricInt(METRIC_TRIP_DISTANCE, Unit::Kilometers));
   registerMetric(tripEfficiency = new MetricInt(METRIC_TRIP_EFFICIENCY, Unit::Kilometers));
+  
+  uint8_t emptyReq[8] = {};
+  genericWakeTask = new PollTask(mainBus, 0x682, emptyReq, 1);
+  // genericWakeTask->timeout = 50;
+  // genericWakeTask->minAttemptDuration = 50;
+
+  // Spoof BCM 'sleep wake up signal'
+  uint8_t gatewayWakeReq[8] = {0x00, 0x03};
+  gatewayWakeTask = new PollTask(mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq));
+
+  keepAwakeTask = new MultiTask();
+  keepAwakeTask->add(0, genericWakeTask);
+  keepAwakeTask->add(0, gatewayWakeTask);
+  keepAwakeTask->minAttemptDuration = 50;
+  keepAwakeTask->repeat();
 
   uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
   bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsTask->configureResponse(0x7BB, 6);
-  bmsTask->setInterval(200);
-  bmsTask->setTimeout(500);
-  registerTask(bmsTask);
+  bmsTask->maxAttemptDuration = 500;
+  bmsTask->maxAttempts = 4;
 
-  uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
-  slowChargesTask = new PollTask(mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq));
-  slowChargesTask->configureResponse(0x79A, 1);
-  slowChargesTask->setInterval(300000);
-  slowChargesTask->setTimeout(500);
-  registerTask(slowChargesTask);
-
-  uint8_t quickChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
-  quickChargesTask = new PollTask(mainBus, 0x797, quickChargesReq, sizeof(quickChargesReq));
-  quickChargesTask->configureResponse(0x79A, 1);
-  quickChargesTask->setInterval(300000);
-  quickChargesTask->setTimeout(500);
-  registerTask(quickChargesTask);
-}
-
-void VehicleNissanLeaf::processFrame(CanBus *bus, long unsigned int &frameId, uint8_t *frameData)
-{
-  if (bus == mainBus)
-  {
-    if (frameId == 0x002) // Steering
-    {
-      // Cast to int16_t so value becomes negative when turning left.
-      int16_t rawSteeringAngle = frameData[0] | (frameData[1] << 8);
-
-      steeringAngle->setValue(constrain(rawSteeringAngle / 6000.0, -1, 1));
-    } 
-    else if (frameId == 0x60D) // BCM (Body Control Module)
-    {
-      awake->setValue(((frameData[1] >> 1) & 0x03) >= 2);
-    }
-    else if (frameId == 0x421) // Instrument Panel Shifter
-    {
-      byte rawGear = frameData[0];
-      
-      if (rawGear == 16) // Reverse
-      {
-        gear->setValue(1);
-      }
-      else if (rawGear == 24) // Neutral
-      {
-        gear->setValue(2);
-      }
-      else if (rawGear == 32 || rawGear == 56) // Drive or B/Eco
-      {
-        gear->setValue(3);
-      } 
-      else // Park
-      {
-        gear->setValue(0);
-      }
-    }
-    else if (frameId == 0x5B3) // VCM to Cluster
-    {
-      uint16_t gids = ((frameData[4] & 0x01) << 8) | frameData[5];
-      
-      // Gids shows as high value on startup - this is incorrect, so we ignore it.
-      if (gids < 500) 
-      {
-        // Range
-        double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
-        if (energyKwh < 0) energyKwh = 0;
-        range->setValue((int32_t)(energyKwh * KM_PER_KWH));
-      }
-
-      //uint32_t rawBatteryTemp = (frameData[0] / 2);
-      //batteryTemp->setValue((frameData[0] / 2.0), true);
-      //batteryTemp->setValue((frameData[0] * 0.25) - 10, true);
-      soh->setValue(frameData[1] >> 1);
-    }
-    else if (frameId == 0x284) // ABS Module
-    {
-      float frontRightSpeed = ((frameData[0] << 8) | frameData[1]) / 208.0;
-      float frontLeftSpeed = ((frameData[2] << 8) | frameData[3]) / 208.0;
-
-      speed->setValue((frontRightSpeed + frontLeftSpeed) / 2.0);
-    }
-    else if (frameId == 0x358) // Indicators & Headlights
-    {
-      turnSignal->setValue((frameData[2] & 0x06) / 2);
-      headlights->setValue((frameData[1] >> 7) == 1);
-    }
-    else if (frameId == 0x54B) // Climate Control 1
-    {
-      fanSpeed->setValue(frameData[4] >> 3);
-    }
-    else if (frameId == 0x510) // Climate Control 2
-    { 
-      if (frameData[7] != 0xff)
-      {
-        ambientTemp->setValue((frameData[7] / 2.0) - 40);
-      }
-    }
-    else if (frameId == 0x5C0) // Lithium Battery Controller (500ms)
-    {
-      // Battery Temperature as reported by the LBC. Effectively has only
-      // 7-bit precision, as the bottom bit is always 0.
-      if ((frameData[0] >> 6) == 1) 
-      {
-        batteryTemp->setValue((frameData[2] / 2.0) - 40);
-      }
-    }
-    else if (frameId == 0x5C5) // Parking Brake & Odometer
-    {
-      parkBrake->setValue((frameData[0] & 0x04) == 0x04);
-      odometer = (frameData[1] << 16) | (frameData[2] << 8) | frameData[3];
-      if (tripInProgress) 
-      { 
-        tripDistance->setValue(odometer - odometerAtLastCharge);
-
-        int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->value;
-        tripEfficiency->setValue(range->value - idealRemainingRange);
-      }
-    }
-  }
-}
-
-void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames)
-{
-  if (task == bmsTask)
-  {
+  bmsTask->onResponse = [this](uint8_t **frames) {
     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
     if (rawCurrentOne & 0x8000000 == 0x8000000) {
       rawCurrentOne = rawCurrentOne | -0x100000000;
@@ -189,16 +84,223 @@ void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t
     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
     // Convert Ah to kWh
     batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
-  }
-  else if (task == quickChargesTask)
+  };
+
+  fullBmsTask = new MultiTask();
+  fullBmsTask->add(0, keepAwakeTask, false);
+  fullBmsTask->add(0, bmsTask);
+  // fullBmsTask->add(1, chargePortTask);
+  // registerPeriodicTask(fullBmsTask, 1000);
+
+  uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
+  chargePortTask = new PollTask(mainBus, 0x35D, chargePortReq, sizeof(chargePortReq));
+  // chargePortTask->timeout = 50;
+  // chargePortTask->
+  // chargePortTask->repeat(4);
+  chargePortTask->minAttemptDuration = 50;
+  chargePortTask->minAttempts = 4;
+
+  fullChargePortTask = new MultiTask();
+  fullChargePortTask->add(0, genericWakeTask);
+  fullChargePortTask->add(1, chargePortTask);
+
+  uint8_t activateCcReq[4] = {0x4E, 0x08, 0x12, 0x00};
+  activateCcTask = new PollTask(mainBus, 0x56E, activateCcReq, sizeof(activateCcReq));
+  activateCcTask->minAttempts = 20;
+  activateCcTask->minAttemptDuration = 100;
+
+  fullActivateCcTask = new MultiTask();
+  fullActivateCcTask->add(0, genericWakeTask);
+  fullActivateCcTask->add(1, activateCcTask);
+
+  uint8_t deactivateCcReq[4] = {0x56, 0x00, 0x01, 0x00};
+  deactivateCcTask = new PollTask(mainBus, 0x56E, deactivateCcReq, sizeof(deactivateCcReq));
+  deactivateCcTask->minAttempts = 20;
+  deactivateCcTask->minAttemptDuration = 100;
+
+  fullDeactivateCcTask = new MultiTask();
+  fullDeactivateCcTask->add(0, genericWakeTask);
+  fullDeactivateCcTask->add(1, deactivateCcTask);
+
+  // BEFORE:
+  // uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
+  // bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
+  // bmsTask->configureResponse(0x7BB, 6);
+  // bmsTask->setInterval(200);
+  // bmsTask->setTimeout(500);
+  // registerTask(bmsTask);
+
+  // uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
+  // slowChargesTask = new PollTask(mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq));
+  // slowChargesTask->configureResponse(0x79A, 1);
+  // slowChargesTask->setInterval(300000);
+  // slowChargesTask->setTimeout(500);
+  // registerTask(slowChargesTask);
+
+  // uint8_t quickChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
+  // quickChargesTask = new PollTask(mainBus, 0x797, quickChargesReq, sizeof(quickChargesReq));
+  // quickChargesTask->configureResponse(0x79A, 1);
+  // quickChargesTask->setInterval(300000);
+  // quickChargesTask->setTimeout(500);
+  // registerTask(quickChargesTask);
+}
+
+void VehicleNissanLeaf::performAction(uint8_t action)
+{
+  switch (action) 
   {
-    quickCharges->setValue((frames[0][4] << 8) | frames[0][5]);
-  }
-  else if (task == slowChargesTask)
-  {
-    slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+    case 1:
+      runTask(fullBmsTask);
+      break;
+    case 2:
+      runTask(fullChargePortTask);
+      break;
+    case 3:
+      runTask(fullActivateCcTask);
+      break;
+    case 4:
+      runTask(fullDeactivateCcTask);
+      break;
   }
 }
+
+void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
+{
+  if (bus == mainBus)
+  {
+    if (id == 0x002) // Steering
+    {
+      // Cast to int16_t so value becomes negative when turning left.
+      int16_t rawSteeringAngle = data[0] | (data[1] << 8);
+
+      steeringAngle->setValue(constrain(rawSteeringAngle / 6000.0, -1, 1));
+    } 
+    else if (id == 0x60D) // BCM (Body Control Module)
+    {
+      awake->setValue(((data[1] >> 1) & 0x03) >= 2);
+    }
+    else if (id == 0x421) // Instrument Panel Shifter
+    {
+      byte rawGear = data[0];
+      
+      if (rawGear == 16) // Reverse
+      {
+        gear->setValue(1);
+      }
+      else if (rawGear == 24) // Neutral
+      {
+        gear->setValue(2);
+      }
+      else if (rawGear == 32 || rawGear == 56) // Drive or B/Eco
+      {
+        gear->setValue(3);
+      } 
+      else // Park
+      {
+        gear->setValue(0);
+      }
+    }
+    else if (id == 0x5B3) // VCM to Cluster
+    {
+      uint16_t gids = ((data[4] & 0x01) << 8) | data[5];
+      
+      // Gids shows as high value on startup - this is incorrect, so we ignore it.
+      if (gids < 500) 
+      {
+        // Range
+        double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
+        if (energyKwh < 0) energyKwh = 0;
+        range->setValue((int32_t)(energyKwh * KM_PER_KWH));
+      }
+
+      //uint32_t rawBatteryTemp = (data[0] / 2);
+      //batteryTemp->setValue((data[0] / 2.0), true);
+      //batteryTemp->setValue((data[0] * 0.25) - 10, true);
+      soh->setValue(data[1] >> 1);
+    }
+    else if (id == 0x284) // ABS Module
+    {
+      float frontRightSpeed = ((data[0] << 8) | data[1]) / 208.0;
+      float frontLeftSpeed = ((data[2] << 8) | data[3]) / 208.0;
+
+      speed->setValue((frontRightSpeed + frontLeftSpeed) / 2.0);
+    }
+    else if (id == 0x358) // Indicators & Headlights
+    {
+      turnSignal->setValue((data[2] & 0x06) / 2);
+      headlights->setValue((data[1] >> 7) == 1);
+    }
+    else if (id == 0x54B) // Climate Control 1
+    {
+      fanSpeed->setValue(data[4] >> 3);
+    }
+    else if (id == 0x510) // Climate Control 2
+    { 
+      if (data[7] != 0xff)
+      {
+        ambientTemp->setValue((data[7] / 2.0) - 40);
+      }
+    }
+    else if (id == 0x5C0) // Lithium Battery Controller (500ms)
+    {
+      // Battery Temperature as reported by the LBC. Effectively has only
+      // 7-bit precision, as the bottom bit is always 0.
+      if ((data[0] >> 6) == 1) 
+      {
+        batteryTemp->setValue((data[2] / 2.0) - 40);
+      }
+    }
+    else if (id == 0x5C5) // Parking Brake & Odometer
+    {
+      parkBrake->setValue((data[0] & 0x04) == 0x04);
+      odometer = (data[1] << 16) | (data[2] << 8) | data[3];
+      if (tripInProgress) 
+      { 
+        tripDistance->setValue(odometer - odometerAtLastCharge);
+
+        int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->value;
+        tripEfficiency->setValue(range->value - idealRemainingRange);
+      }
+    }
+  }
+}
+
+// void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames)
+// {
+//   if (task == bmsTask)
+//   {
+//     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
+//     if (rawCurrentOne & 0x8000000 == 0x8000000) {
+//       rawCurrentOne = rawCurrentOne | -0x100000000;
+//     }
+
+//     int32_t rawCurrentTwo = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
+//     if (rawCurrentTwo & 0x8000000 == 0x8000000) {
+//       rawCurrentTwo = rawCurrentTwo | -0x100000000;
+//     }
+
+//     batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
+//     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
+
+//     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
+//     if (newSoc >= 0 && newSoc <= 100) {
+//       if (newSoc >= soc->value+5) endTrip(); // Detect if car has been charged.
+//       soc->setValue(newSoc);
+//     }
+
+//     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
+//     // Convert Ah to kWh
+//     batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
+//   }
+//   else if (task == quickChargesTask)
+//   {
+//     quickCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+//   }
+//   else if (task == slowChargesTask)
+//   {
+//     slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+//   }
+// }
 
 void VehicleNissanLeaf::updateExtraMetrics()
 {
@@ -227,9 +329,9 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   if (metric == awake)
   {
-    bmsTask->setEnabled(awake->value);
-    slowChargesTask->setEnabled(awake->value);
-    quickChargesTask->setEnabled(awake->value);
+    // bmsTask->setEnabled(awake->value);
+    // slowChargesTask->setEnabled(awake->value);
+    // quickChargesTask->setEnabled(awake->value);
   }
   else if (metric == gear)
   {
