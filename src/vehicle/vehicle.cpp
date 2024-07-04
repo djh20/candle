@@ -1,11 +1,16 @@
 #include "vehicle.h"
-#include <Arduino.h>
+#include "metric/metric_manager.h"
 
 #define TEST_CYCLE_INTERVAL 200U
 
+Vehicle::Vehicle(const char *domain)
+{
+  this->domain = domain;
+}
+
 void Vehicle::begin()
 {
-  registerMetric(awake = new MetricInt(METRIC_AWAKE, Unit::None));
+  registerMetric(ignition = new IntMetric(domain, "ignition", MetricType::Statistic));
 }
 
 void Vehicle::loop()
@@ -42,13 +47,19 @@ void Vehicle::registerBus(CanBus *bus)
 
 void Vehicle::registerMetric(Metric *metric) 
 {
-  metrics[totalMetrics++] = metric;
-  
   metric->onUpdate([this, metric]() {
     metricUpdated(metric);
   });
 
-  log_i("Registered metric %04X", metric->id);
+  GlobalMetricManager.registerMetric(metric);
+}
+
+void Vehicle::registerMetrics(std::initializer_list<Metric*> metrics)
+{
+  for (Metric *metric : metrics)
+  {
+    registerMetric(metric);
+  }
 }
 
 void Vehicle::handleBuses()
@@ -62,16 +73,6 @@ void Vehicle::handleBuses()
     {
       processFrame(bus, bus->frame.can_id, bus->frame.data);
     }
-
-    // if (bus->readFrame()) 
-    // {
-    //   processFrame(bus, bus->frameId, bus->frameData);
-
-    //   if (currentTask && currentTask->resId == bus->frameId && currentTask->bus == bus)
-    //   {
-    //     currentTask->processFrame(bus->frameData, bus->frameDataLen);
-    //   }
-    // }
   }
 }
 
@@ -84,8 +85,6 @@ void Vehicle::performAction(uint8_t action) {}
 
 void Vehicle::handleTasks()
 {
-  // uint32_t now = millis();
-
   if (!currentTask && totalTasksInQueue > 0)
   {
     currentTask = taskQueue[0];
@@ -98,11 +97,6 @@ void Vehicle::handleTasks()
 
     if (!currentTask->isRunning())
     {
-      // if (currentTask->lastRunWasSuccessful)
-      // {
-      //   processPollResponse(currentTask->bus, currentTask, currentTask->resBuffer);
-      // }
-
       // Move queue forward.
       for (uint8_t i = 0; i < totalTasksInQueue; i++)
       {
@@ -111,32 +105,9 @@ void Vehicle::handleTasks()
 
       totalTasksInQueue--;
 
-      // Only add task back to queue if it's able to run again in the future.
-      // if (currentTask->canRunAgain())
-      // {
-      //   tasks[totalTasks-1] = currentTask;
-      // }
-      // else
-      // {
-      //   log_i("Deleted task");
-      //   totalTasks--;
-      //   delete currentTask;
-      // }
-
       currentTask = NULL;
     }
   }
-
-  // for (uint8_t i = 0; i < totalTasksInQueue; i++)
-  // {
-  //   Task* task = taskQueue[i];
-  //   if (task->run())
-  //   {
-  //     currentTask = task;
-  //     currentTaskIndex = i;
-  //     break;
-  //   }
-  // }
 }
 
 void Vehicle::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}

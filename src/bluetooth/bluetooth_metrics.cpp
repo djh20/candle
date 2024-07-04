@@ -1,26 +1,23 @@
-#include "bluetooth_vehicle.h"
+#include "bluetooth_metrics.h"
 #include "bluetooth.h"
 #include "../vehicle/vehicle_manager.h"
+#include "../metric/metric_manager.h"
 #include <BLEService.h>
 #include <BLE2902.h>
 
 #define UPDATE_INTERVAL 60U
 
-void BluetoothVehicle::begin()
+void BluetoothMetrics::begin()
 {
+  // TODO: Move vehicle-specific logic to another class.
   vehicle = GlobalVehicleManager.getVehicle();
-  if (!vehicle)
-  {
-    log_w("Failed to create bluetooth metrics service - no vehicle instance");
-    return;
-  }
 
   // Create bluetooth service for metrics.
   BLEService *metricsService = GlobalBluetooth.getServer()->createService(
     GlobalBluetooth.uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
   );
 
-  for (uint8_t i = 0; i < vehicle->totalMetrics;)
+  for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics;)
   {
     // Create characteristic for grouped metric data.
     BLECharacteristic *characteristic = new BLECharacteristic(
@@ -40,10 +37,12 @@ void BluetoothVehicle::begin()
     descriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
 
     uint8_t descriptorBuffer[GROUPED_METRIC_INFO_LEN];
+    memset(descriptorBuffer, 0, sizeof(descriptorBuffer));
+    
     uint8_t descriptorBufferSize = 0;
   
-    for (; i < vehicle->totalMetrics; i++) {
-      Metric *metric = vehicle->metrics[i];
+    for (; i < GlobalMetricManager.totalMetrics; i++) {
+      Metric *metric = GlobalMetricManager.metrics[i];
 
       // TODO: Somehow get data length without explicitly writing method for it.
       uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
@@ -71,11 +70,12 @@ void BluetoothVehicle::begin()
   metricsService->start();
 }
 
-void BluetoothVehicle::loop()
+void BluetoothMetrics::loop()
 {
-  if (!vehicle) return;
-
-  GlobalBluetooth.setCanAdvertise(!vehicle->awake->valid || vehicle->awake->value);
+  if (vehicle)
+  {
+    GlobalBluetooth.setCanAdvertise(!vehicle->ignition->valid || vehicle->ignition->value);
+  }
 
   uint32_t now = millis();
   
@@ -83,18 +83,18 @@ void BluetoothVehicle::loop()
   {
     uint8_t characteristicIndex = 0;
 
-    for (uint8_t i = 0; i < vehicle->totalMetrics;) {
+    for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics;) {
       BLECharacteristic *characteristic = characteristics[characteristicIndex];
       uint8_t characteristicValueIndex = 0;
       bool updated = false;
 
-      for (; i < vehicle->totalMetrics; i++) {
-        Metric *metric = vehicle->metrics[i];
+      for (; i < GlobalMetricManager.totalMetrics; i++) {
+        Metric *metric = GlobalMetricManager.metrics[i];
         uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
 
         if (characteristicValueLength > GROUPED_METRIC_DATA_LEN)
           break;
-        
+
         metric->getValueData(characteristicValueBuffer, characteristicValueIndex);
         if (metric->lastUpdateMillis >= lastUpdateMillis) updated = true;
       }
@@ -110,4 +110,4 @@ void BluetoothVehicle::loop()
   }
 }
 
-BluetoothVehicle GlobalBluetoothVehicle;
+BluetoothMetrics GlobalBluetoothMetrics;

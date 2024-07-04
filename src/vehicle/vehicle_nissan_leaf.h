@@ -3,44 +3,49 @@
 #include "vehicle.h"
 #include "can/poll_task.h"
 #include "can/multi_task.h"
+#include "../metric/metric_float.h"
 
 class VehicleNissanLeaf: public Vehicle 
 {
   public:
-    void begin();
-    void performAction(uint8_t action);
+    VehicleNissanLeaf();
+    
+    void begin() override;
+    void performAction(uint8_t action) override;
 
     CanBus *mainBus;
+
+    IntMetric *modelYear;
     
-    MetricInt *gear;
-    MetricFloat *soc;
-    MetricFloat *soh;
-    MetricInt *range;
-    MetricFloat *speed;
-    MetricFloat *steeringAngle;
-    MetricFloat *batteryVoltage;
-    MetricFloat *batteryCurrent;
-    MetricFloat *batteryPower;
-    MetricFloat *batteryCapacity;
-    MetricFloat *batteryTemp;
-    MetricFloat *ambientTemp;
-    MetricInt *fanSpeed;
-    MetricInt *chargeStatus;
-    MetricInt *remainingChargeTime;
-    MetricInt *turnSignal;
-    MetricInt *headlights;
-    MetricInt *parkBrake;
-    MetricInt *quickCharges;
-    MetricInt *slowCharges;
-    MetricInt *tripDistance;
-    MetricInt *tripEfficiency;
+    IntMetric *gear;
+    FloatMetric *soc;
+    FloatMetric *soh;
+    IntMetric *range;
+    FloatMetric *speed;
+    FloatMetric *steeringAngle;
+    FloatMetric *batteryVoltage;
+    FloatMetric *batteryCurrent;
+    FloatMetric *batteryPower;
+    FloatMetric *batteryCapacity;
+    FloatMetric *batteryTemp;
+    FloatMetric *ambientTemp;
+    IntMetric *fanSpeed;
+    IntMetric *chargeStatus;
+    IntMetric *remainingChargeTime;
+    IntMetric *turnSignal;
+    IntMetric *headlights;
+    IntMetric *parkBrake;
+    IntMetric *quickCharges;
+    IntMetric *slowCharges;
+    IntMetric *tripDistance;
+    IntMetric *tripEfficiency;
 
   protected:
-    void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
+    void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;
     // void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
-    void updateExtraMetrics();
-    void metricUpdated(Metric *metric);
-    void testCycle();
+    void updateExtraMetrics() override;
+    void metricUpdated(Metric *metric) override;
+    void testCycle() override;
 
   private:
     void startTrip();

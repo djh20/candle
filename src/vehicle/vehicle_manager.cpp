@@ -4,15 +4,15 @@
 
 void VehicleManager::begin()
 {
-  uint16_t vehicleId = GlobalConfig.getVehicleId();
+  const char *vehicleId = GlobalConfig.vehicleId->value;
 
-  log_i("Searching for vehicle entry with ID: %04X", vehicleId);
+  log_i("Searching for vehicle entry with ID: %s", vehicleId);
 
   for (const VehicleEntry& entry : vehicleCatalog)
   {
-    if (entry.id == vehicleId)
+    if (strcmp(vehicleId, entry.id) == 0)
     {
-      log_i("Instantiating vehicle: %s", entry.name);
+      log_i("Instantiating vehicle: %s", entry.id);
       vehicle = entry.createVehicle();
       vehicle->begin();
       break;

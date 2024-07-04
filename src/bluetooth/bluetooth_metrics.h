@@ -4,9 +4,10 @@
 #include <BLECharacteristic.h>
 
 #define GROUPED_METRIC_DATA_LEN 64
-#define GROUPED_METRIC_INFO_LEN 96
+// #define GROUPED_METRIC_INFO_LEN 96
+#define GROUPED_METRIC_INFO_LEN 256
 
-class BluetoothVehicle
+class BluetoothMetrics
 {
   public:
     void begin();
@@ -20,4 +21,4 @@ class BluetoothVehicle
     uint32_t lastUpdateMillis = 0;
 };
 
-extern BluetoothVehicle GlobalBluetoothVehicle;
+extern BluetoothMetrics GlobalBluetoothMetrics;

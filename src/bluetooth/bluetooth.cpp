@@ -2,40 +2,35 @@
 #include "../config.h"
 #include "bluetooth_device_info.h"
 #include "bluetooth_ota.h"
-#include "bluetooth_config.h"
-#include "bluetooth_vehicle.h"
+#include "bluetooth_metrics.h"
 #include <BLEDevice.h>
 
-#define ADVERTISE_DELAY 500U
-
-#define BLUETOOTH_MODE_OPEN 0U
-#define BLUETOOTH_MODE_ENCRYPTED 1U
+#define ADVERTISE_DELAY 500
 
 void Bluetooth::begin()
 {
-  BLEDevice::init(GlobalConfig.getDeviceName());
+  BLEDevice::init(GlobalConfig.hostname->value);
   
   server = BLEDevice::createServer();
   server->setCallbacks(this);
 
-  if (GlobalConfig.getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
+  if (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED)
   {
     BLESecurity *security = new BLESecurity();
-    security->setStaticPIN(GlobalConfig.getBluetoothPin());
+    security->setStaticPIN(GlobalConfig.blePin->value);
     security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
     security->setCapability(ESP_IO_CAP_OUT);
   }
 
   GlobalBluetoothDeviceInfo.begin();
   GlobalBluetoothOTA.begin();
-  GlobalBluetoothConfig.begin();
-  GlobalBluetoothVehicle.begin();
+  GlobalBluetoothMetrics.begin();
 }
 
 void Bluetooth::loop()
 {
   GlobalBluetoothOTA.loop();
-  GlobalBluetoothVehicle.loop();
+  GlobalBluetoothMetrics.loop();
   
   uint32_t now = millis();
   if (!advertising && !clientConnected && canAdvertise && now - lastDisconnectMillis >= ADVERTISE_DELAY)
@@ -99,7 +94,7 @@ BLEUUID Bluetooth::uuid(bool custom, uint16_t id, uint16_t discriminator)
 
 esp_gatt_perm_t Bluetooth::getAccessPermissions()
 {
-  if (GlobalConfig.getBluetoothMode() == BLUETOOTH_MODE_ENCRYPTED)
+  if (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED)
   {
     return ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED;
   }

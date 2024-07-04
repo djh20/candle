@@ -2,8 +2,7 @@
 
 #include <Arduino.h>
 
-#define SERIAL_CMD_ID_LEN 3U
-#define SERIAL_CMD_ARGS_LEN 32U
+#define SERIAL_CMD_MAX_LEN 128
 
 class SerialTerminal
 {
@@ -12,12 +11,11 @@ class SerialTerminal
 
   private:
     void runCommand();
-
-    char cmdId[SERIAL_CMD_ID_LEN];
-    uint16_t cmdArgs[SERIAL_CMD_ARGS_LEN];
-    uint8_t cmdCharIndex = 0;
-    uint8_t cmdArgIndex = 0;
-    bool cmdArgReceived = false;
+    void nextArg(char *&currentArg);
+    
+    char cmdBuffer[SERIAL_CMD_MAX_LEN] = {};
+    uint8_t cmdBufferIndex = 0;
+    bool waitingForNextArg = false;
 
     uint8_t emptyReq[8] = {};
     uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};

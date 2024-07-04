@@ -5,10 +5,9 @@
 
 class VehicleEntry {
   public:
-    VehicleEntry(uint16_t id, const char* name, const std::function<Vehicle*()>& callback)
-     : id(id), name(name), createVehicle(callback) {}
+    VehicleEntry(const char* id, const std::function<Vehicle*()>& callback)
+     : id(id), createVehicle(callback) {}
 
-    uint16_t id;
-    const char* name;
+    const char* id;
     std::function<Vehicle*()> createVehicle;
 };

@@ -2,11 +2,14 @@
 
 #include <Arduino.h>
 #include "can/can_bus.h"
+#include "metric/metric_manager.h"
 
 #define WH_PER_GID 80
 #define KM_PER_KWH 6.2
 #define NOMINAL_PACK_VOLTAGE 360
 #define MAX_SOC_PERCENT 95
+
+VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle("nl") {}
 
 void VehicleNissanLeaf::begin()
 {
@@ -14,31 +17,36 @@ void VehicleNissanLeaf::begin()
 
   registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, CAN_500KBPS));
 
-  registerMetric(gear = new MetricInt(METRIC_GEAR, Unit::None));
-  registerMetric(soc = new MetricFloat(METRIC_SOC, Unit::Percent, Precision::Medium));
-  registerMetric(soh = new MetricFloat(METRIC_SOH, Unit::Percent, Precision::Medium));
-  registerMetric(range = new MetricInt(METRIC_RANGE, Unit::Kilometers));
-  registerMetric(speed = new MetricFloat(METRIC_SPEED, Unit::KilometersPerHour, Precision::Medium));
-  registerMetric(steeringAngle = new MetricFloat(METRIC_STEERING_ANGLE, Unit::None, Precision::High));
+  registerMetrics({
+    modelYear = new IntMetric(domain, "model_year", MetricType::Parameter),
 
-  registerMetric(batteryVoltage = new MetricFloat(METRIC_HV_BATT_VOLTAGE, Unit::Volts, Precision::Low));
-  registerMetric(batteryCurrent = new MetricFloat(METRIC_HV_BATT_CURRENT, Unit::Amps, Precision::Low));
-  registerMetric(batteryPower = new MetricFloat(METRIC_HV_BATT_POWER, Unit::Kilowatts, Precision::Medium));
-  registerMetric(batteryCapacity = new MetricFloat(METRIC_HV_BATT_CAPACITY, Unit::KilowattHours, Precision::Medium));
-  registerMetric(batteryTemp = new MetricFloat(METRIC_HV_BATT_TEMPERATURE, Unit::Celsius, Precision::Low));
+    gear = new IntMetric(domain, "gear", MetricType::Statistic),
+    soc = new FloatMetric(domain, "soc", MetricType::Statistic, Unit::Percent, Precision::Medium),
+    soh = new FloatMetric(domain, "soh", MetricType::Statistic, Unit::Percent, Precision::Medium),
+    range = new IntMetric(domain, "range", MetricType::Statistic, Unit::Kilometers),
+    speed = new FloatMetric(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour, Precision::Medium),
+    steeringAngle = new FloatMetric(domain, "steering_angle", MetricType::Statistic, Unit::None, Precision::High),
 
-  registerMetric(ambientTemp = new MetricFloat(METRIC_AMBIENT_TEMPERATURE, Unit::Celsius, Precision::Low));
-  registerMetric(fanSpeed = new MetricInt(METRIC_FAN_SPEED, Unit::None));
-  registerMetric(chargeStatus = new MetricInt(METRIC_CHARGE_STATUS, Unit::None));
-  registerMetric(remainingChargeTime = new MetricInt(METRIC_REMAINING_CHARGE_TIME, Unit::Minutes));
-  registerMetric(turnSignal = new MetricInt(METRIC_TURN_SIGNAL, Unit::None));
-  registerMetric(headlights = new MetricInt(METRIC_HEADLIGHTS, Unit::None));
-  registerMetric(parkBrake = new MetricInt(METRIC_PARK_BRAKE, Unit::None));
-  registerMetric(quickCharges = new MetricInt(METRIC_QUICK_CHARGES, Unit::None));
-  registerMetric(slowCharges = new MetricInt(METRIC_SLOW_CHARGES, Unit::None));
+    batteryVoltage = new FloatMetric(domain, "hvb_voltage", MetricType::Statistic, Unit::Volts, Precision::Low),
+    batteryCurrent = new FloatMetric(domain, "hvb_current", MetricType::Statistic, Unit::Amps, Precision::Low),
+    batteryPower = new FloatMetric(domain, "hvb_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
+    batteryCapacity = new FloatMetric(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
+    batteryTemp = new FloatMetric(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
 
-  registerMetric(tripDistance = new MetricInt(METRIC_TRIP_DISTANCE, Unit::Kilometers));
-  registerMetric(tripEfficiency = new MetricInt(METRIC_TRIP_EFFICIENCY, Unit::Kilometers));
+    ambientTemp = new FloatMetric(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    fanSpeed = new IntMetric(domain, "cc_fan_speed", MetricType::Statistic),
+    chargeStatus = new IntMetric(domain, "chg_status", MetricType::Statistic),
+    remainingChargeTime = new IntMetric(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
+    turnSignal = new IntMetric(domain, "turn_signal", MetricType::Statistic),
+    headlights = new IntMetric(domain, "headlights", MetricType::Statistic),
+    parkBrake = new IntMetric(domain, "park_brake", MetricType::Statistic),
+
+    quickCharges = new IntMetric(domain, "chg_slow_count", MetricType::Statistic),
+    slowCharges = new IntMetric(domain, "chg_fast_count", MetricType::Statistic),
+
+    tripDistance = new IntMetric(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
+    tripEfficiency = new IntMetric(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
+  });
   
   uint8_t emptyReq[8] = {};
   genericWakeTask = new PollTask(mainBus, 0x682, emptyReq, 1);
@@ -121,28 +129,6 @@ void VehicleNissanLeaf::begin()
   fullDeactivateCcTask = new MultiTask();
   fullDeactivateCcTask->add(0, genericWakeTask);
   fullDeactivateCcTask->add(1, deactivateCcTask);
-
-  // BEFORE:
-  // uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
-  // bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
-  // bmsTask->configureResponse(0x7BB, 6);
-  // bmsTask->setInterval(200);
-  // bmsTask->setTimeout(500);
-  // registerTask(bmsTask);
-
-  // uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
-  // slowChargesTask = new PollTask(mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq));
-  // slowChargesTask->configureResponse(0x79A, 1);
-  // slowChargesTask->setInterval(300000);
-  // slowChargesTask->setTimeout(500);
-  // registerTask(slowChargesTask);
-
-  // uint8_t quickChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
-  // quickChargesTask = new PollTask(mainBus, 0x797, quickChargesReq, sizeof(quickChargesReq));
-  // quickChargesTask->configureResponse(0x79A, 1);
-  // quickChargesTask->setInterval(300000);
-  // quickChargesTask->setTimeout(500);
-  // registerTask(quickChargesTask);
 }
 
 void VehicleNissanLeaf::performAction(uint8_t action)
@@ -177,7 +163,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     } 
     else if (id == 0x60D) // BCM (Body Control Module)
     {
-      awake->setValue(((data[1] >> 1) & 0x03) >= 2);
+      ignition->setValue(((data[1] >> 1) & 0x03) >= 2);
     }
     else if (id == 0x421) // Instrument Panel Shifter
     {
@@ -327,11 +313,11 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
-  if (metric == awake)
+  if (metric == ignition)
   {
-    // bmsTask->setEnabled(awake->value);
-    // slowChargesTask->setEnabled(awake->value);
-    // quickChargesTask->setEnabled(awake->value);
+    // bmsTask->setEnabled(ignition->value);
+    // slowChargesTask->setEnabled(ignition->value);
+    // quickChargesTask->setEnabled(ignition->value);
   }
   else if (metric == gear)
   {
@@ -382,7 +368,7 @@ void VehicleNissanLeaf::endTrip()
 
 void VehicleNissanLeaf::testCycle()
 {
-  awake->setValue(1);
+  ignition->setValue(1);
   gear->setValue(3);
   soc->setValue(85.5);
   range->setValue(104);

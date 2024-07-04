@@ -2,6 +2,7 @@
 #include "../utils.h"
 #include "../vehicle/vehicle_manager.h"
 #include "../vehicle/vehicle_nissan_leaf.h"
+#include "../metric/metric_manager.h"
 
 void SerialTerminal::loop()
 {
@@ -12,114 +13,77 @@ void SerialTerminal::loop()
     if (incomingChar == '\n' || incomingChar == ';')
     {
       runCommand();
-      cmdArgIndex = 0;
-      cmdCharIndex = 0;
-      cmdArgReceived = false;
-      memset(cmdId, 0, sizeof(cmdId));
-      memset(cmdArgs, 0, sizeof(cmdArgs));
+      waitingForNextArg = false;
+      cmdBufferIndex = 0;
+      memset(cmdBuffer, 0, sizeof(cmdBuffer));
     }
     else if (incomingChar == ' ')
     {
-      if (cmdArgReceived)
+      if (cmdBufferIndex > 0) // Ignore spaces before command.
       {
-        cmdArgIndex++;
-        cmdArgReceived = false;
+        waitingForNextArg = true;
       }
     }
     else if (incomingChar != '\r')
     {
-      if (cmdCharIndex < SERIAL_CMD_ID_LEN)
+      if (waitingForNextArg)
       {
-        cmdId[cmdCharIndex] = incomingChar;
+        cmdBufferIndex++; // Leave gap between arguments (null terminator).
+        waitingForNextArg = false;
       }
-      else
-      {
-        cmdArgs[cmdArgIndex] <<= 4;
-        cmdArgs[cmdArgIndex] |= Utils::hexCharToInt(incomingChar);
-        cmdArgReceived = true;
-      }
-
-      cmdCharIndex++;
+      cmdBuffer[cmdBufferIndex++] = incomingChar;
     } 
   }
 }
 
 void SerialTerminal::runCommand()
 {
-  Vehicle *vehicle = GlobalVehicleManager.getVehicle();
-  if (!vehicle) return;
+  char *arg = cmdBuffer;
 
-  if (strncmp(cmdId, "REQ", SERIAL_CMD_ID_LEN) == 0) 
+  if (strcmp(arg, "metric") == 0)
   {
-    log_i("Running request command...");
+    nextArg(arg);
 
-    uint8_t busId = cmdArgs[0];
-    // log_i("Bus ID: %u", busId);
-    
-    uint16_t resId = cmdArgs[1];
-    // log_i("Response ID: %03X", resId);
-
-    uint16_t reqId = cmdArgs[2];
-    // log_i("Request ID: %03X", reqId);
-
-    uint8_t reqDataLen = cmdArgs[3];
-    // log_i("Request Length: %03X", reqId);
-
-    uint8_t reqData[reqDataLen];
-    for (uint8_t i = 0; i < reqDataLen; i++)
+    Metric *metric = GlobalMetricManager.getMetric(arg);
+    if (metric)
     {
-      reqData[i] = cmdArgs[i+4];
+      log_i("Found metric [%s]", metric->id);
+    }
+    else
+    {
+      log_w("Failed to find metric [%s]", arg);
+      return;
     }
 
-    PollTask *task = new PollTask(
-      vehicle->buses[busId], reqId, reqData, reqDataLen
-    );
+    nextArg(arg);
 
-    task->configureResponse(resId, 10);
-    task->maxAttemptDuration = 500;
-    task->onFinish = [task]() {
-      log_i("Deleting task");
-      delete task;
-    };
-
-    vehicle->runTask(task);
-  }
-  else if (strncmp(cmdId, "MON", SERIAL_CMD_ID_LEN) == 0) 
-  {
-    CanBus *bus = vehicle->buses[cmdArgs[0]];
-    bus->setMonitoredMessageId(cmdArgs[1]);
-  }
-  else if (strncmp(cmdId, "CAP", SERIAL_CMD_ID_LEN) == 0) 
-  {
-    vehicle->buses[cmdArgs[0]]->capture();
-  }
-  else if (strncmp(cmdId, "LOG", SERIAL_CMD_ID_LEN) == 0) 
-  {
-    CanBus *bus = vehicle->buses[cmdArgs[0]];
-    
-    for (uint8_t i = 0; i < CAN_CAP_LEN; i++)
+    if (strcmp(arg, "set") == 0)
     {
-      uint8_t *frame = bus->captureBuffer[i];
-      uint16_t ms = (frame[0] << 8) | frame[1];
-      uint16_t frameId = (frame[2] << 8) | frame[3];
-      uint16_t frameDataLen = frame[4] >> 1;
-      bool tx = frame[4] & 0x01;
-      uint8_t *frameData = frame + 5;
-      
-      log_i(
-        "#%02u (%05u) <%u> [%03X]: %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
-        i+1, ms, tx, frameId, frameData[0], frameData[1], frameData[2], frameData[3],
-        frameData[4], frameData[5], frameData[6], frameData[7], frameDataLen
-      );
+      nextArg(arg);
+      metric->setValueFromString(arg);
+      log_i("Set [%s] to [%s]", metric->id, arg);
+    }
+    else if (strcmp(arg, "invalidate") == 0)
+    {
+      metric->invalidate();
+      log_i("The value of [%s] is no longer valid", metric->id);
+    }
+    else if (strlen(arg) == 0)
+    {
+      metric->getValueAsString(arg); // Reuse command buffer
+      log_i("Current Value: %s (%s)", arg, metric->valid ? "valid" : "invalid");
+      log_i("Last Updated: %u", metric->lastUpdateMillis);
     }
   }
-  else if (strncmp(cmdId, "ACT", SERIAL_CMD_ID_LEN) == 0) 
+  else if (strcmp(arg, "restart") == 0)
   {
-    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
-    if (!vehicle) return;
-
-    vehicle->performAction(cmdArgs[0]);
+    ESP.restart();
   }
+}
+
+void SerialTerminal::nextArg(char *&currentArg)
+{
+  currentArg += strlen(currentArg) + 1;
 }
 
 SerialTerminal GlobalSerialTerminal;

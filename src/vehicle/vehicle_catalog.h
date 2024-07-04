@@ -5,5 +5,5 @@
 #include "vehicle_nissan_leaf.h"
 
 const std::vector<VehicleEntry> vehicleCatalog = {
-  {0x5CB5, "Nissan Leaf (Gen 1)", []() -> Vehicle* { return new VehicleNissanLeaf(); }},
+  {"nissan_leaf", []() -> Vehicle* { return new VehicleNissanLeaf(); }},
 };
