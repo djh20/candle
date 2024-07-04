@@ -8,9 +8,6 @@ class StringMetric: public Metric
     StringMetric(
       const char *domain, const char *localId, MetricType type, uint8_t size
     );
-
-    void loadValue() override;
-    void saveValue() override;
     
     void setValue(const char *newValue);
     void setValueFromString(const char *str) override;
@@ -20,4 +17,8 @@ class StringMetric: public Metric
 
     char *value;
     uint8_t valueSize;
+
+  protected:
+    void loadValue() override;
+    void saveValue() override;
 };

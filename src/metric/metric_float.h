@@ -10,9 +10,6 @@ class FloatMetric: public Metric
       Precision precision = Precision::Medium
     );
 
-    void loadValue() override;
-    void saveValue() override;
-
     void setValue(float newValue);
     void setValueFromString(const char *str) override;
     void getValueAsString(char *str) override;
@@ -22,4 +19,8 @@ class FloatMetric: public Metric
  
     float value = 0;
     Precision precision;
+
+  protected:
+    void loadValue() override;
+    void saveValue() override;
 };
