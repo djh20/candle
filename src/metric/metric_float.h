@@ -11,7 +11,7 @@ class FloatMetric: public Metric
     );
 
     void setValue(float newValue);
-    void setValueFromString(const char *str) override;
+    void setValue(const char *newValue) override;
     void getValueAsString(char *str) override;
     void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) override;
     void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override;

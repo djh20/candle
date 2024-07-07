@@ -55,8 +55,9 @@ class Metric
 
     void onUpdate(std::function<void()> handler);
     void invalidate();
+    void redact();
 
-    virtual void setValueFromString(const char *str) = 0;
+    virtual void setValue(const char *newValue) = 0;
     virtual void getValueAsString(char *str) = 0;
 
     virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex);
@@ -71,6 +72,7 @@ class Metric
     MetricDataType dataType;
 
     bool valid = false;
+    bool redacted = false;
     uint32_t lastUpdateMillis = 0;
 
   protected:

@@ -24,9 +24,9 @@ void IntMetric::setValue(int32_t newValue)
   save();
 }
 
-void IntMetric::setValueFromString(const char *str)
+void IntMetric::setValue(const char *newValue)
 {
-  setValue(strtol(str, nullptr, 0));
+  setValue(strtol(newValue, nullptr, 0));
 }
 
 void IntMetric::getValueAsString(char *str)

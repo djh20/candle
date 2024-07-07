@@ -14,12 +14,18 @@ void Bluetooth::begin()
   server = BLEDevice::createServer();
   server->setCallbacks(this);
 
-  if (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED)
+  bool encrypted = (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED);
+
+  log_i("Bluetooth encryption is %s", encrypted ? "enabled" : "disabled");
+
+  if (encrypted)
   {
     BLESecurity *security = new BLESecurity();
     security->setStaticPIN(GlobalConfig.blePin->value);
-    security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
+    security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
     security->setCapability(ESP_IO_CAP_OUT);
+
+    log_i("Bluetooth pin is %u", GlobalConfig.blePin->value);
   }
 
   GlobalBluetoothDeviceInfo.begin();
@@ -96,7 +102,7 @@ esp_gatt_perm_t Bluetooth::getAccessPermissions()
 {
   if (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED)
   {
-    return ESP_GATT_PERM_READ_ENCRYPTED | ESP_GATT_PERM_WRITE_ENCRYPTED;
+    return ESP_GATT_PERM_READ_ENC_MITM | ESP_GATT_PERM_WRITE_ENC_MITM;
   }
   else
   {

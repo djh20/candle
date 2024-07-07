@@ -70,6 +70,11 @@ void Metric::invalidate()
   save();
 }
 
+void Metric::redact()
+{
+  redacted = true;
+}
+
 void Metric::markAsUpdated()
 {
   lastUpdateMillis = millis();

@@ -11,6 +11,8 @@ class Config
     StringMetric *hostname;
     StringMetric *vehicleId;
     IntMetric *blePin;
+    StringMetric *wifiNetworks;
+    StringMetric *wifiPasswords;
 
     uint8_t getBluetoothMode();
 };

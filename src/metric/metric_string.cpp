@@ -31,11 +31,6 @@ void StringMetric::setValue(const char *newValue)
   save();
 }
 
-void StringMetric::setValueFromString(const char *str)
-{
-  setValue(str);
-}
-
 void StringMetric::getValueAsString(char *str)
 {
   strcpy(str, value);

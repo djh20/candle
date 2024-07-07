@@ -38,11 +38,20 @@ void Config::begin()
 
   blePin = new IntMetric(domain, "ble_pin", MetricType::Parameter);
   GlobalMetricManager.registerMetric(blePin);
+
+  // // 128 bytes = 4 SSIDs
+  // wifiNetworks = new StringMetric(domain, "wifi_networks", MetricType::Parameter, 128);
+  // GlobalMetricManager.registerMetric(wifiNetworks);
+
+  // // 128 bytes = 4 passwords
+  // wifiPasswords = new StringMetric(domain, "wifi_passwords", MetricType::Parameter, 128);
+  // wifiPasswords->redact();
+  // GlobalMetricManager.registerMetric(wifiPasswords);
 }
 
 uint8_t Config::getBluetoothMode()
 {
-  return BLE_MODE_OPEN;
+  return blePin->valid ? BLE_MODE_ENCRYPTED : BLE_MODE_OPEN;
 }
 
 Config GlobalConfig;

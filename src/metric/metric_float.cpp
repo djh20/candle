@@ -28,9 +28,9 @@ void FloatMetric::setValue(float newValue)
   save();
 }
 
-void FloatMetric::setValueFromString(const char *str)
+void FloatMetric::setValue(const char *newValue)
 {
-  setValue(strtof(str, nullptr));
+  setValue(strtof(newValue, nullptr));
 }
 
 void FloatMetric::getValueAsString(char *str)

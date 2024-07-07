@@ -44,6 +44,8 @@ void BluetoothMetrics::begin()
     for (; i < GlobalMetricManager.totalMetrics; i++) {
       Metric *metric = GlobalMetricManager.metrics[i];
 
+      if (metric->redacted) continue;
+
       // TODO: Somehow get data length without explicitly writing method for it.
       uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
 
@@ -90,6 +92,8 @@ void BluetoothMetrics::loop()
 
       for (; i < GlobalMetricManager.totalMetrics; i++) {
         Metric *metric = GlobalMetricManager.metrics[i];
+        if (metric->redacted) continue;
+        
         uint8_t characteristicValueLength = characteristicValueIndex + metric->getValueDataLength();
 
         if (characteristicValueLength > GROUPED_METRIC_DATA_LEN)
