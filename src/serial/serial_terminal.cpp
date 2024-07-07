@@ -14,10 +14,15 @@ void SerialTerminal::loop()
     {
       runCommand();
       waitingForNextArg = false;
+      quoted = false;
       cmdBufferIndex = 0;
       memset(cmdBuffer, 0, sizeof(cmdBuffer));
     }
-    else if (incomingChar == ' ')
+    else if (incomingChar == '"')
+    {
+      quoted = !quoted;
+    }
+    else if (incomingChar == ' ' && !quoted)
     {
       if (cmdBufferIndex > 0) // Ignore spaces before command.
       {
@@ -44,6 +49,17 @@ void SerialTerminal::runCommand()
   {
     nextArg(arg);
 
+    if (strlen(arg) == 0)
+    {
+      log_i("List of metrics:");
+      for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics; i++)
+      {
+        Metric *metric = GlobalMetricManager.metrics[i];
+        log_i("%s", metric->id);
+      }
+      return;
+    }
+
     Metric *metric = GlobalMetricManager.getMetric(arg);
     if (metric)
     {
@@ -60,7 +76,7 @@ void SerialTerminal::runCommand()
     if (strcmp(arg, "set") == 0)
     {
       nextArg(arg);
-      metric->setValueFromString(arg);
+      metric->setValue(arg);
       log_i("Set [%s] to [%s]", metric->id, arg);
     }
     else if (strcmp(arg, "invalidate") == 0)
