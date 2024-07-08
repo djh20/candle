@@ -11,7 +11,6 @@ class VehicleNissanLeaf: public Vehicle
     VehicleNissanLeaf();
     
     void begin() override;
-    void performAction(uint8_t action) override;
 
     CanBus *mainBus;
 
@@ -60,17 +59,17 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *gatewayWakeTask;
     MultiTask *keepAwakeTask;
 
-    PollTask *bmsTask;
-    MultiTask *fullBmsTask;
+    MultiTask *bmsTask;
+    // MultiTask *fullBmsTask;
 
-    PollTask *chargePortTask;
-    MultiTask *fullChargePortTask;
+    MultiTask *chargePortTask;
+    // MultiTask *fullChargePortTask;
 
-    PollTask *activateCcTask;
-    MultiTask *fullActivateCcTask;
+    MultiTask *ccOnTask;
+    // MultiTask *fullActivateCcTask;
 
-    PollTask *deactivateCcTask;
-    MultiTask *fullDeactivateCcTask;
+    MultiTask *ccOffTask;
+    // MultiTask *fullDeactivateCcTask;
 
     PollTask *slowChargesTask;
     PollTask *quickChargesTask;

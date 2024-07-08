@@ -32,8 +32,7 @@ void Vehicle::loop()
 
 void Vehicle::registerBus(CanBus *bus)
 {
-  buses[totalBuses] = bus;
-  totalBuses++;
+  buses[totalBuses++] = bus;
 
   bus->begin();
 
@@ -62,6 +61,12 @@ void Vehicle::registerMetrics(std::initializer_list<Metric*> metrics)
   }
 }
 
+void Vehicle::registerTask(Task *task)
+{
+  tasks[totalTasks++] = task;
+  log_i("Registered task: %s", task->id);
+}
+
 void Vehicle::handleBuses()
 {
   for (uint8_t i = 0; i < totalBuses; i++) 
@@ -81,7 +86,19 @@ void Vehicle::runTask(Task *task)
   taskQueue[totalTasksInQueue++] = task;
 }
 
-void Vehicle::performAction(uint8_t action) {}
+Task *Vehicle::getTask(const char *id)
+{
+  for (uint8_t i = 0; i < totalTasks; i++)
+  {
+    Task *task = tasks[i];
+    if (strcmp(id, task->id) == 0)
+    {
+      return task;
+    }
+  }
+  
+  return nullptr;
+}
 
 void Vehicle::handleTasks()
 {

@@ -1,7 +1,5 @@
 #include "serial_terminal.h"
-#include "../utils.h"
 #include "../vehicle/vehicle_manager.h"
-#include "../vehicle/vehicle_nissan_leaf.h"
 #include "../metric/metric_manager.h"
 
 void SerialTerminal::loop()
@@ -89,6 +87,58 @@ void SerialTerminal::runCommand()
       metric->getValueAsString(arg); // Reuse command buffer
       log_i("Current Value: %s (%s)", arg, metric->valid ? "valid" : "invalid");
       log_i("Last Updated: %u", metric->lastUpdateMillis);
+    }
+  }
+  else if (strcmp(arg, "task") == 0)
+  {
+    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+    if (vehicle)
+    {
+      nextArg(arg);
+
+      if (strlen(arg) == 0)
+      {
+        log_i("List of tasks:");
+        for (uint8_t i = 0; i < vehicle->totalTasks; i++)
+        {
+          Task *task = vehicle->tasks[i];
+          log_i("%s", task->id);
+        }
+        return;
+      }
+
+      Task *task = vehicle->getTask(arg);
+      if (task)
+      {
+        log_i("Running task [%s]", task->id);
+        vehicle->runTask(task);
+      }
+      else
+      {
+        log_w("Failed to find task [%s]", arg);
+      }
+    }
+    else
+    {
+      log_w("Failed to run task - no vehicle found");
+    }
+  }
+  else if (strcmp(arg, "monitor") == 0)
+  {
+    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+
+    if (vehicle)
+    {
+      nextArg(arg);
+      uint8_t busId = strtoul(arg, nullptr, 0);
+
+      nextArg(arg);
+      uint16_t msgId = strtoul(arg, nullptr, 0);
+      
+      CanBus *bus = vehicle->buses[busId];
+      bus->setMonitoredMessageId(msgId);
+
+      log_i("Monitoring [%03X] on bus %u", msgId, busId);
     }
   }
   else if (strcmp(arg, "restart") == 0)

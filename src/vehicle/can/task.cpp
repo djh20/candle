@@ -1,5 +1,10 @@
 #include "task.h"
 
+Task::Task(const char *id)
+{
+  this->id = id;
+}
+
 bool Task::run()
 {
   if (!enabled || running) return false;

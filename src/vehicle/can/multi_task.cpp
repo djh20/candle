@@ -1,5 +1,7 @@
 #include "multi_task.h"
 
+MultiTask::MultiTask(const char *id) : Task(id) {}
+
 void MultiTask::add(uint8_t stage, Task *task, bool mustFinish)
 {
   tasks[totalTasks] = task;

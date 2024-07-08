@@ -5,6 +5,8 @@
 class Task 
 {
   public:
+    Task(const char *id);
+    
     bool run();
     void stop();
 
@@ -15,6 +17,7 @@ class Task
     bool isRunning() const;
     bool isSuccessful() const;
 
+    const char *id;
     bool enabled = true;
 
     uint32_t minAttemptDuration = 0;

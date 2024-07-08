@@ -1,7 +1,8 @@
 #include "poll_task.h"
 
-PollTask::PollTask(CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen)
-{
+PollTask::PollTask(
+  const char *id, CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen
+) : Task(id) {
   this->bus = bus;
   this->reqId = reqId;
   this->reqDataLen = reqDataLen;

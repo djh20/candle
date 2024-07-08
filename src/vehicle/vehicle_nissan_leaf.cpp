@@ -49,27 +49,29 @@ void VehicleNissanLeaf::begin()
   });
   
   uint8_t emptyReq[8] = {};
-  genericWakeTask = new PollTask(mainBus, 0x682, emptyReq, 1);
+  genericWakeTask = new PollTask("generic_wake", mainBus, 0x682, emptyReq, 1);
   // genericWakeTask->timeout = 50;
   // genericWakeTask->minAttemptDuration = 50;
 
   // Spoof BCM 'sleep wake up signal'
   uint8_t gatewayWakeReq[8] = {0x00, 0x03};
-  gatewayWakeTask = new PollTask(mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq));
+  gatewayWakeTask = new PollTask(
+    "gateway_wake", mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq)
+  );
 
-  keepAwakeTask = new MultiTask();
+  keepAwakeTask = new MultiTask("keep_awake");
   keepAwakeTask->add(0, genericWakeTask);
   keepAwakeTask->add(0, gatewayWakeTask);
   keepAwakeTask->minAttemptDuration = 50;
   keepAwakeTask->repeat();
 
   uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
-  bmsTask = new PollTask(mainBus, 0x79B, bmsReq, sizeof(bmsReq));
-  bmsTask->configureResponse(0x7BB, 6);
-  bmsTask->maxAttemptDuration = 500;
-  bmsTask->maxAttempts = 4;
+  PollTask *bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
+  bmsReqTask->configureResponse(0x7BB, 6);
+  bmsReqTask->maxAttemptDuration = 500;
+  bmsReqTask->maxAttempts = 4;
 
-  bmsTask->onResponse = [this](uint8_t **frames) {
+  bmsReqTask->onResponse = [this](uint8_t **frames) {
     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
     if (rawCurrentOne & 0x8000000 == 0x8000000) {
       rawCurrentOne = rawCurrentOne | -0x100000000;
@@ -94,60 +96,44 @@ void VehicleNissanLeaf::begin()
     batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
   };
 
-  fullBmsTask = new MultiTask();
-  fullBmsTask->add(0, keepAwakeTask, false);
-  fullBmsTask->add(0, bmsTask);
+  bmsTask = new MultiTask("bms");
+  bmsTask->add(0, keepAwakeTask, false);
+  bmsTask->add(0, bmsReqTask);
+  registerTask(bmsTask);
   // fullBmsTask->add(1, chargePortTask);
   // registerPeriodicTask(fullBmsTask, 1000);
 
   uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
-  chargePortTask = new PollTask(mainBus, 0x35D, chargePortReq, sizeof(chargePortReq));
-  // chargePortTask->timeout = 50;
-  // chargePortTask->
-  // chargePortTask->repeat(4);
-  chargePortTask->minAttemptDuration = 50;
-  chargePortTask->minAttempts = 4;
+  PollTask *chargePortReqTask = new PollTask(
+    "charge_port_req", mainBus, 0x35D, chargePortReq, sizeof(chargePortReq)
+  );
+  chargePortReqTask->minAttemptDuration = 50;
+  chargePortReqTask->minAttempts = 4;
 
-  fullChargePortTask = new MultiTask();
-  fullChargePortTask->add(0, genericWakeTask);
-  fullChargePortTask->add(1, chargePortTask);
+  chargePortTask = new MultiTask("charge_port");
+  chargePortTask->add(0, genericWakeTask);
+  chargePortTask->add(1, chargePortReqTask);
+  registerTask(chargePortTask);
 
-  uint8_t activateCcReq[4] = {0x4E, 0x08, 0x12, 0x00};
-  activateCcTask = new PollTask(mainBus, 0x56E, activateCcReq, sizeof(activateCcReq));
-  activateCcTask->minAttempts = 20;
-  activateCcTask->minAttemptDuration = 100;
+  uint8_t ccOnReq[4] = {0x4E, 0x08, 0x12, 0x00};
+  PollTask *ccOnReqTask = new PollTask("cc_on_req", mainBus, 0x56E, ccOnReq, sizeof(ccOnReq));
+  ccOnReqTask->minAttempts = 20;
+  ccOnReqTask->minAttemptDuration = 100;
 
-  fullActivateCcTask = new MultiTask();
-  fullActivateCcTask->add(0, genericWakeTask);
-  fullActivateCcTask->add(1, activateCcTask);
+  ccOnTask = new MultiTask("cc_on");
+  ccOnTask->add(0, genericWakeTask);
+  ccOnTask->add(1, ccOnReqTask);
+  registerTask(ccOnTask);
 
-  uint8_t deactivateCcReq[4] = {0x56, 0x00, 0x01, 0x00};
-  deactivateCcTask = new PollTask(mainBus, 0x56E, deactivateCcReq, sizeof(deactivateCcReq));
-  deactivateCcTask->minAttempts = 20;
-  deactivateCcTask->minAttemptDuration = 100;
+  uint8_t ccOffReq[4] = {0x56, 0x00, 0x01, 0x00};
+  PollTask *ccOffReqTask = new PollTask("cc_off_req", mainBus, 0x56E, ccOffReq, sizeof(ccOffReq));
+  ccOffReqTask->minAttempts = 20;
+  ccOffReqTask->minAttemptDuration = 100;
 
-  fullDeactivateCcTask = new MultiTask();
-  fullDeactivateCcTask->add(0, genericWakeTask);
-  fullDeactivateCcTask->add(1, deactivateCcTask);
-}
-
-void VehicleNissanLeaf::performAction(uint8_t action)
-{
-  switch (action) 
-  {
-    case 1:
-      runTask(fullBmsTask);
-      break;
-    case 2:
-      runTask(fullChargePortTask);
-      break;
-    case 3:
-      runTask(fullActivateCcTask);
-      break;
-    case 4:
-      runTask(fullDeactivateCcTask);
-      break;
-  }
+  ccOffTask = new MultiTask("cc_off");
+  ccOffTask->add(0, genericWakeTask);
+  ccOffTask->add(1, ccOffReqTask);
+  registerTask(ccOffTask);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)

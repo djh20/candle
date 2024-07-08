@@ -18,12 +18,15 @@ class Vehicle
     void loop();
     
     void runTask(Task *task);
-    virtual void performAction(uint8_t action);
+    Task *getTask(const char *id);
 
     IntMetric *ignition;
 
     CanBus *buses[VEHICLE_MAX_BUSES];
     uint8_t totalBuses = 0;
+
+    Task *tasks[VEHICLE_MAX_TASKS];
+    uint8_t totalTasks = 0;
 
     Task *taskQueue[VEHICLE_MAX_TASKS];
     uint8_t totalTasksInQueue = 0;
@@ -32,6 +35,7 @@ class Vehicle
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
     void registerMetrics(std::initializer_list<Metric*> metrics);
+    void registerTask(Task *task);
 
     void handleBuses();
     void handleTasks();

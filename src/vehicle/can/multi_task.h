@@ -8,6 +8,8 @@
 class MultiTask: public Task
 {
   public:
+    MultiTask(const char *id);
+
     void add(uint8_t stage, Task *task, bool mustFinish = true);
 
   protected:
