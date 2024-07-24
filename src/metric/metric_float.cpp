@@ -1,58 +1,85 @@
 #include "metric_float.h"
 
-FloatMetric::FloatMetric(
+template <uint8_t E>
+FloatMetric<E>::FloatMetric(
   const char *domain, const char *localId, MetricType type, Unit unit, Precision precision
-) : Metric(domain, localId, type, MetricDataType::Float, unit)
+) : Metric(domain, localId, type, MetricDataType::Float, unit, E)
 {
   this->precision = precision;
 }
 
-void FloatMetric::loadValue()
+template <uint8_t E>
+void FloatMetric<E>::loadState()
 {
-  setValue(prefs.getFloat(localId));
+  prefs.getBytes(localId, state, sizeof(state));
 }
 
-void FloatMetric::saveValue()
+template <uint8_t E>
+void FloatMetric<E>::saveState()
 {
-  prefs.putFloat(localId, value);
+  prefs.putBytes(localId, state, sizeof(state));
 }
 
-void FloatMetric::setValue(float newValue)
+template <uint8_t E>
+void FloatMetric<E>::setValue(float newValue, uint8_t elementIndex)
 {
-  if (newValue == value && valid) return;
+  if (newValue == state[elementIndex] && valid) return;
 
   valid = true;
-  value = newValue;
+  state[elementIndex] = newValue;
 
   markAsUpdated();
-  save();
 }
 
-void FloatMetric::setValue(const char *newValue)
+template <uint8_t E>
+void FloatMetric<E>::setValue(const char *newValue, uint8_t elementIndex)
 {
-  setValue(strtof(newValue, nullptr));
+  setValue(strtof(newValue, nullptr), elementIndex);
 }
 
-void FloatMetric::getValueAsString(char *str)
+template <uint8_t E>
+float FloatMetric<E>::getValue(uint8_t elementIndex)
 {
-  sprintf(str, "%f", value);
+  return state[elementIndex];
 }
 
-void FloatMetric::getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) {
+template <uint8_t E>
+void FloatMetric<E>::getStateString(char *str)
+{
+  for (uint8_t i = 0; i < E; i++)
+  {
+    if (i > 0)
+    {
+      *str = ',';
+      str++;
+    }
+    
+    str += sprintf(str, "%f", state[i]);
+  }
+}
+
+template <uint8_t E>
+void FloatMetric<E>::getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) {
   Metric::getDescriptorData(buffer, bufferIndex, valueDataIndex);
 
   buffer[bufferIndex++] = static_cast<uint8_t>(precision);
 }
 
-void FloatMetric::getValueData(uint8_t *buffer, uint8_t &bufferIndex) {
-  int32_t convertedValue = value * (float)pow(10, (uint8_t)precision);
-  buffer[bufferIndex++] = valid;
-  buffer[bufferIndex++] = convertedValue >> 24;
-  buffer[bufferIndex++] = convertedValue >> 16;
-  buffer[bufferIndex++] = convertedValue >> 8;
-  buffer[bufferIndex++] = convertedValue;
+template <uint8_t E>
+void FloatMetric<E>::getValueData(uint8_t *buffer, uint8_t &bufferIndex) {
+  // TODO: Implement
+  // int32_t convertedValue = value * (float)pow(10, (uint8_t)precision);
+  // buffer[bufferIndex++] = valid;
+  // buffer[bufferIndex++] = convertedValue >> 24;
+  // buffer[bufferIndex++] = convertedValue >> 16;
+  // buffer[bufferIndex++] = convertedValue >> 8;
+  // buffer[bufferIndex++] = convertedValue;
 }
 
-uint8_t FloatMetric::getValueDataLength() {
+template <uint8_t E>
+uint8_t FloatMetric<E>::getValueDataLength() {
   return 5;
 }
+
+// TODO: Figure out a better way to do this...
+template class FloatMetric<1>;

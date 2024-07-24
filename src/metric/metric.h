@@ -47,7 +47,7 @@ class Metric
   public:
     Metric(
       const char *domain, const char *localId, MetricType type, 
-      MetricDataType dataType, Unit unit
+      MetricDataType dataType, Unit unit, uint8_t elementCount
     );
 
     void begin();
@@ -57,8 +57,8 @@ class Metric
     void invalidate();
     void redact();
 
-    virtual void setValue(const char *newValue) = 0;
-    virtual void getValueAsString(char *str) = 0;
+    virtual void setValue(const char *value, uint8_t elementIndex = 0) = 0;
+    virtual void getStateString(char *str) = 0;
 
     virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex);
     virtual void getValueData(uint8_t *buffer, uint8_t &bufferIndex) = 0;
@@ -74,11 +74,14 @@ class Metric
     bool valid = false;
     bool redacted = false;
     uint32_t lastUpdateMillis = 0;
+    uint32_t lastSaveMillis = 0;
+
+    uint8_t elementCount = 0;
 
   protected:
     void markAsUpdated();
-    virtual void loadValue();
-    virtual void saveValue();
+    virtual void loadState();
+    virtual void saveState();
 
     std::function<void()> updateHandler;
 

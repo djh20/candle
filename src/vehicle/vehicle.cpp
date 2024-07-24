@@ -10,7 +10,7 @@ Vehicle::Vehicle(const char *domain)
 
 void Vehicle::begin()
 {
-  registerMetric(ignition = new IntMetric(domain, "ignition", MetricType::Statistic));
+  registerMetric(ignition = new IntMetric<1>(domain, "ignition", MetricType::Statistic));
 }
 
 void Vehicle::loop()

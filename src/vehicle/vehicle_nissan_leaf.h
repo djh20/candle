@@ -14,30 +14,30 @@ class VehicleNissanLeaf: public Vehicle
 
     CanBus *mainBus;
 
-    IntMetric *modelYear;
+    IntMetric<1> *modelYear;
     
-    IntMetric *gear;
-    FloatMetric *soc;
-    FloatMetric *soh;
-    IntMetric *range;
-    FloatMetric *speed;
-    FloatMetric *steeringAngle;
-    FloatMetric *batteryVoltage;
-    FloatMetric *batteryCurrent;
-    FloatMetric *batteryPower;
-    FloatMetric *batteryCapacity;
-    FloatMetric *batteryTemp;
-    FloatMetric *ambientTemp;
-    IntMetric *fanSpeed;
-    IntMetric *chargeStatus;
-    IntMetric *remainingChargeTime;
-    IntMetric *turnSignal;
-    IntMetric *headlights;
-    IntMetric *parkBrake;
-    IntMetric *quickCharges;
-    IntMetric *slowCharges;
-    IntMetric *tripDistance;
-    IntMetric *tripEfficiency;
+    IntMetric<1> *gear;
+    FloatMetric<1> *soc;
+    FloatMetric<1> *soh;
+    IntMetric<1> *range;
+    FloatMetric<1> *speed;
+    FloatMetric<1> *steeringAngle;
+    FloatMetric<1> *batteryVoltage;
+    FloatMetric<1> *batteryCurrent;
+    FloatMetric<1> *batteryPower;
+    FloatMetric<1> *batteryCapacity;
+    FloatMetric<1> *batteryTemp;
+    FloatMetric<1> *ambientTemp;
+    IntMetric<1> *fanSpeed;
+    IntMetric<1> *chargeStatus;
+    IntMetric<1> *remainingChargeTime;
+    IntMetric<1> *turnSignal;
+    IntMetric<1> *headlights;
+    IntMetric<1> *parkBrake;
+    IntMetric<1> *quickCharges;
+    IntMetric<1> *slowCharges;
+    IntMetric<1> *tripDistance;
+    IntMetric<1> *tripEfficiency;
 
   protected:
     void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;

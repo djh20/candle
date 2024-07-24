@@ -20,7 +20,7 @@ class Vehicle
     void runTask(Task *task);
     Task *getTask(const char *id);
 
-    IntMetric *ignition;
+    IntMetric<1> *ignition;
 
     CanBus *buses[VEHICLE_MAX_BUSES];
     uint8_t totalBuses = 0;

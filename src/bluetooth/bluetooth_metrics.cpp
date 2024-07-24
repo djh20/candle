@@ -1,6 +1,5 @@
 #include "bluetooth_metrics.h"
-#include "bluetooth.h"
-#include "../vehicle/vehicle_manager.h"
+#include "bluetooth_manager.h"
 #include "../metric/metric_manager.h"
 #include <BLEService.h>
 #include <BLE2902.h>
@@ -9,32 +8,29 @@
 
 void BluetoothMetrics::begin()
 {
-  // TODO: Move vehicle-specific logic to another class.
-  vehicle = GlobalVehicleManager.getVehicle();
-
   // Create bluetooth service for metrics.
-  BLEService *metricsService = GlobalBluetooth.getServer()->createService(
-    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
+  BLEService *metricsService = GlobalBluetoothManager.getServer()->createService(
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_SERVICE_METRICS)
   );
 
   for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics;)
   {
     // Create characteristic for grouped metric data.
     BLECharacteristic *characteristic = new BLECharacteristic(
-      GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalCharacteristics),
+      GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_GROUPED_METRIC_DATA, totalCharacteristics),
       BLECharacteristic::PROPERTY_READ |
       BLECharacteristic::PROPERTY_NOTIFY
     );
-    characteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+    characteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
 
     uint8_t characteristicValueIndex = 0;
 
     // Create descriptor for grouped metric info.
     BLEDescriptor *descriptor = new BLEDescriptor(
-      GlobalBluetooth.uuid(UUID_CUSTOM, BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
+      GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_DESCRIPTOR_GROUPED_METRIC_INFO), 
       GROUPED_METRIC_INFO_LEN
     );
-    descriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+    descriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
 
     uint8_t descriptorBuffer[GROUPED_METRIC_INFO_LEN];
     memset(descriptorBuffer, 0, sizeof(descriptorBuffer));
@@ -62,7 +58,7 @@ void BluetoothMetrics::begin()
     characteristic->addDescriptor(descriptor);
 
     BLEDescriptor *notifyDescriptor = new BLE2902();
-    notifyDescriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+    notifyDescriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
     characteristic->addDescriptor(notifyDescriptor);
 
     metricsService->addCharacteristic(characteristic);
@@ -74,14 +70,9 @@ void BluetoothMetrics::begin()
 
 void BluetoothMetrics::loop()
 {
-  if (vehicle)
-  {
-    GlobalBluetooth.setCanAdvertise(!vehicle->ignition->valid || vehicle->ignition->value);
-  }
-
   uint32_t now = millis();
   
-  if (now - lastUpdateMillis >= UPDATE_INTERVAL && GlobalBluetooth.getClientConnected())
+  if (now - lastUpdateMillis >= UPDATE_INTERVAL && GlobalBluetoothManager.getClientConnected())
   {
     uint8_t characteristicIndex = 0;
 

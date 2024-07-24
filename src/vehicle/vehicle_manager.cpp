@@ -4,7 +4,7 @@
 
 void VehicleManager::begin()
 {
-  const char *vehicleId = GlobalConfig.vehicleId->value;
+  const char *vehicleId = GlobalConfig.vehicleId->getValue();
 
   log_i("Searching for vehicle entry with ID: %s", vehicleId);
 

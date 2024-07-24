@@ -33,7 +33,7 @@
 #define BLE_CHARACTERISTIC_GROUPED_METRIC_DATA 0x0401
 #define BLE_DESCRIPTOR_GROUPED_METRIC_INFO 0x0402
 
-class Bluetooth: public BLEServerCallbacks
+class BluetoothManager: public BLEServerCallbacks
 {
   public:
     void begin();
@@ -66,4 +66,4 @@ class Bluetooth: public BLEServerCallbacks
     };
 };
 
-extern Bluetooth GlobalBluetooth;
+extern BluetoothManager GlobalBluetoothManager;

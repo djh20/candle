@@ -1,8 +1,10 @@
 #include <Arduino.h>
 #include "config.h"
 #include "vehicle/vehicle_manager.h"
-#include "bluetooth/bluetooth.h"
+#include "bluetooth/bluetooth_manager.h"
+#include "wifi/wifi_manager.h"
 #include "serial/serial_terminal.h"
+// #include "metric/metric_manager.h"
 
 #if ARDUHAL_LOG_LEVEL > ARDUHAL_LOG_LEVEL_NONE
 #define SERIAL_ENABLE
@@ -33,7 +35,8 @@ void setup()
 
   GlobalConfig.begin();
   GlobalVehicleManager.begin();
-  GlobalBluetooth.begin();
+  GlobalBluetoothManager.begin();
+  GlobalWiFiManager.begin();
 }
 
 void loop()
@@ -43,5 +46,7 @@ void loop()
   #endif
   
   GlobalVehicleManager.loop();
-  GlobalBluetooth.loop();
+  GlobalBluetoothManager.loop();
+  GlobalWiFiManager.loop();
+  // GlobalMetricManager.loop();
 }

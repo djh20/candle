@@ -18,34 +18,34 @@ void VehicleNissanLeaf::begin()
   registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, CAN_500KBPS));
 
   registerMetrics({
-    modelYear = new IntMetric(domain, "model_year", MetricType::Parameter),
+    modelYear = new IntMetric<1>(domain, "model_year", MetricType::Parameter),
 
-    gear = new IntMetric(domain, "gear", MetricType::Statistic),
-    soc = new FloatMetric(domain, "soc", MetricType::Statistic, Unit::Percent, Precision::Medium),
-    soh = new FloatMetric(domain, "soh", MetricType::Statistic, Unit::Percent, Precision::Medium),
-    range = new IntMetric(domain, "range", MetricType::Statistic, Unit::Kilometers),
-    speed = new FloatMetric(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour, Precision::Medium),
-    steeringAngle = new FloatMetric(domain, "steering_angle", MetricType::Statistic, Unit::None, Precision::High),
+    gear = new IntMetric<1>(domain, "gear", MetricType::Statistic),
+    soc = new FloatMetric<1>(domain, "soc", MetricType::Statistic, Unit::Percent, Precision::Medium),
+    soh = new FloatMetric<1>(domain, "soh", MetricType::Statistic, Unit::Percent, Precision::Medium),
+    range = new IntMetric<1>(domain, "range", MetricType::Statistic, Unit::Kilometers),
+    speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour, Precision::Medium),
+    steeringAngle = new FloatMetric<1>(domain, "steering_angle", MetricType::Statistic, Unit::None, Precision::High),
 
-    batteryVoltage = new FloatMetric(domain, "hvb_voltage", MetricType::Statistic, Unit::Volts, Precision::Low),
-    batteryCurrent = new FloatMetric(domain, "hvb_current", MetricType::Statistic, Unit::Amps, Precision::Low),
-    batteryPower = new FloatMetric(domain, "hvb_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
-    batteryCapacity = new FloatMetric(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
-    batteryTemp = new FloatMetric(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    batteryVoltage = new FloatMetric<1>(domain, "hvb_voltage", MetricType::Statistic, Unit::Volts, Precision::Low),
+    batteryCurrent = new FloatMetric<1>(domain, "hvb_current", MetricType::Statistic, Unit::Amps, Precision::Low),
+    batteryPower = new FloatMetric<1>(domain, "hvb_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
+    batteryCapacity = new FloatMetric<1>(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
+    batteryTemp = new FloatMetric<1>(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
 
-    ambientTemp = new FloatMetric(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
-    fanSpeed = new IntMetric(domain, "cc_fan_speed", MetricType::Statistic),
-    chargeStatus = new IntMetric(domain, "chg_status", MetricType::Statistic),
-    remainingChargeTime = new IntMetric(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
-    turnSignal = new IntMetric(domain, "turn_signal", MetricType::Statistic),
-    headlights = new IntMetric(domain, "headlights", MetricType::Statistic),
-    parkBrake = new IntMetric(domain, "park_brake", MetricType::Statistic),
+    ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    fanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
+    chargeStatus = new IntMetric<1>(domain, "chg_status", MetricType::Statistic),
+    remainingChargeTime = new IntMetric<1>(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
+    turnSignal = new IntMetric<1>(domain, "turn_signal", MetricType::Statistic),
+    headlights = new IntMetric<1>(domain, "headlights", MetricType::Statistic),
+    parkBrake = new IntMetric<1>(domain, "park_brake", MetricType::Statistic),
 
-    quickCharges = new IntMetric(domain, "chg_slow_count", MetricType::Statistic),
-    slowCharges = new IntMetric(domain, "chg_fast_count", MetricType::Statistic),
+    quickCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
+    slowCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
 
-    tripDistance = new IntMetric(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
-    tripEfficiency = new IntMetric(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
+    tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
+    tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
   });
   
   uint8_t emptyReq[8] = {};
@@ -87,7 +87,7 @@ void VehicleNissanLeaf::begin()
 
     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
     if (newSoc >= 0 && newSoc <= 100) {
-      if (newSoc >= soc->value+5) endTrip(); // Detect if car has been charged.
+      if (newSoc >= soc->getValue()+5) endTrip(); // Detect if car has been charged.
       soc->setValue(newSoc);
     }
 
@@ -230,8 +230,8 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       { 
         tripDistance->setValue(odometer - odometerAtLastCharge);
 
-        int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->value;
-        tripEfficiency->setValue(range->value - idealRemainingRange);
+        int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->getValue();
+        tripEfficiency->setValue(range->getValue() - idealRemainingRange);
       }
     }
   }
@@ -281,12 +281,12 @@ void VehicleNissanLeaf::updateExtraMetrics()
   // Remaining Charge Time
   if (now - remainingChargeTime->lastUpdateMillis >= 5000)
   {
-    if (chargeStatus->value == 1 && batteryPower->value < 0) 
+    if (chargeStatus->getValue() == 1 && batteryPower->getValue() < 0) 
     {
-      double percentUntilFull = MAX_SOC_PERCENT - soc->value;
+      double percentUntilFull = MAX_SOC_PERCENT - soc->getValue();
 
-      double energyRequired = batteryCapacity->value * (percentUntilFull/100.0);
-      double chargeTimeHours = (energyRequired / -batteryPower->value) * 1.2;
+      double energyRequired = batteryCapacity->getValue() * (percentUntilFull/100.0);
+      double chargeTimeHours = (energyRequired / -batteryPower->getValue()) * 1.2;
 
       remainingChargeTime->setValue(chargeTimeHours * 60);
     }
@@ -307,7 +307,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
   else if (metric == gear)
   {
-    if (gear->value > 0)
+    if (gear->getValue() > 0)
     {
       startTrip();
       chargeStatus->setValue(0);
@@ -315,15 +315,15 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
   {
-    batteryPower->setValue((batteryVoltage->value * batteryCurrent->value) / 1000.0);
+    batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
   }
   else if (metric == batteryPower)
   {
-    if (gear->value == 0 && batteryPower->value <= -1) {
+    if (gear->getValue() == 0 && batteryPower->getValue() <= -1) {
       chargeStatus->setValue(1);
       endTrip();
     }
-    else if (chargeStatus->value == 1 && batteryPower->value >= -0.5)
+    else if (chargeStatus->getValue() == 1 && batteryPower->getValue() >= -0.5)
     {
       chargeStatus->setValue(2);
     }
@@ -337,7 +337,7 @@ void VehicleNissanLeaf::startTrip()
   tripInProgress = true;
   tripDistance->setValue(0);
   tripEfficiency->setValue(0);
-  rangeAtLastCharge = range->value;
+  rangeAtLastCharge = range->getValue();
   odometerAtLastCharge = odometer;
 }
 
@@ -364,20 +364,20 @@ void VehicleNissanLeaf::testCycle()
   tripDistance->setValue(55);
   tripEfficiency->setValue(-5);
 
-  parkBrake->setValue(!parkBrake->value);
-  headlights->setValue(!headlights->value);
+  parkBrake->setValue(!parkBrake->getValue());
+  headlights->setValue(!headlights->getValue());
 
-  float speedValue = speed->value;
+  float speedValue = speed->getValue();
   speedValue += 5;
   if (speedValue > 100) speedValue = 0;
   speed->setValue(speedValue);
 
-  float powerValue = batteryPower->value;
+  float powerValue = batteryPower->getValue();
   powerValue += 5;
   if (powerValue > 80) powerValue = 0;
   batteryPower->setValue(powerValue);
  
-  float steeringValue = steeringAngle->value;
+  float steeringValue = steeringAngle->getValue();
   steeringValue += 0.2;
   if (steeringValue > 1) steeringValue = -1;
   steeringAngle->setValue(steeringValue);

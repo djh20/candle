@@ -73,19 +73,26 @@ void SerialTerminal::runCommand()
 
     if (strcmp(arg, "set") == 0)
     {
-      nextArg(arg);
-      metric->setValue(arg);
+      for (uint8_t i = 0; i < metric->elementCount; i++)
+      {
+        nextArg(arg);
+        metric->setValue(arg, i);
+      }
+
+      metric->save();
+      metric->getStateString(arg); // Reuse command buffer
       log_i("Set [%s] to [%s]", metric->id, arg);
     }
     else if (strcmp(arg, "invalidate") == 0)
     {
       metric->invalidate();
+      metric->save();
       log_i("The value of [%s] is no longer valid", metric->id);
     }
     else if (strlen(arg) == 0)
     {
-      metric->getValueAsString(arg); // Reuse command buffer
-      log_i("Current Value: %s (%s)", arg, metric->valid ? "valid" : "invalid");
+      metric->getStateString(arg); // Reuse command buffer
+      log_i("Current State: %s (%s)", arg, metric->valid ? "valid" : "invalid");
       log_i("Last Updated: %u", metric->lastUpdateMillis);
     }
   }

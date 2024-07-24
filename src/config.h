@@ -8,11 +8,11 @@ class Config
   public:
     void begin();
     
-    StringMetric *hostname;
-    StringMetric *vehicleId;
-    IntMetric *blePin;
-    StringMetric *wifiNetworks;
-    StringMetric *wifiPasswords;
+    StringMetric<1> *hostname;
+    StringMetric<1> *vehicleId;
+    IntMetric<1> *blePin;
+    StringMetric<4> *wifiNetworks;
+    StringMetric<4> *wifiPasswords;
 
     uint8_t getBluetoothMode();
 };

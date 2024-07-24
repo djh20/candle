@@ -17,10 +17,6 @@ class SerialTerminal
     uint8_t cmdBufferIndex = 0;
     bool waitingForNextArg = false;
     bool quoted = false;
-
-    uint8_t emptyReq[8] = {};
-    uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
-    uint8_t wakeSignalReq[8] = {0x00, 0x03};
 };
 
 extern SerialTerminal GlobalSerialTerminal;

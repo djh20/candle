@@ -2,6 +2,7 @@
 
 #include "metric.h"
 
+template <uint8_t E>
 class FloatMetric: public Metric 
 {
   public:
@@ -10,17 +11,21 @@ class FloatMetric: public Metric
       Precision precision = Precision::Medium
     );
 
-    void setValue(float newValue);
-    void setValue(const char *newValue) override;
-    void getValueAsString(char *str) override;
+    void setValue(float newValue, uint8_t elementIndex = 0);
+    void setValue(const char *newValue, uint8_t elementIndex = 0) override;
+    float getValue(uint8_t elementIndex = 0);
+
+    void getStateString(char *str) override;
     void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) override;
     void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override;
     uint8_t getValueDataLength() override;
- 
-    float value = 0;
+    
     Precision precision;
 
   protected:
-    void loadValue() override;
-    void saveValue() override;
+    void loadState() override;
+    void saveState() override;
+
+  private:
+    float state[E] = {};
 };

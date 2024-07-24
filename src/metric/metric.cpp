@@ -7,13 +7,14 @@ Preferences Metric::prefs;
 
 Metric::Metric(
   const char *domain, const char *localId, MetricType type, 
-  MetricDataType dataType, Unit unit
+  MetricDataType dataType, Unit unit, uint8_t elementCount
 ) {
   this->domain = domain;
   this->localId = localId;
   this->type = type;
   this->dataType = dataType;
   this->unit = unit;
+  this->elementCount = elementCount;
 
   uint8_t domainLen = strlen(domain);
   uint8_t localIdLen = strlen(localId);
@@ -22,7 +23,7 @@ Metric::Metric(
   // Allocate memory for the concatenated id.
   id = new char[idLen + 1]; // +1 for the null terminator.
 
-  // Create the id by Concatenate the strings with a dot separator.
+  // Concatenate the strings with a dot separator.
   strcpy(id, domain);
   id[domainLen] = '.';
   strcpy(id + domainLen + 1, localId);
@@ -33,7 +34,14 @@ void Metric::begin()
   if (type != MetricType::Parameter) return;
 
   prefs.begin(domain, RO_MODE);
-  if (prefs.isKey(localId)) loadValue();
+  if (prefs.isKey(localId))
+  {
+    loadState();
+    log_i("Loaded state of [%s] from NVS", id);
+
+    valid = true;
+    markAsUpdated();
+  }
   prefs.end();
 }
 
@@ -45,7 +53,7 @@ void Metric::save()
 
   if (valid) 
   {
-    saveValue();
+    saveState();
   }
   else
   {
@@ -53,10 +61,12 @@ void Metric::save()
   }
   
   prefs.end();
+
+  log_i("Saved state of [%s] to NVS", id);
 }
 
-void Metric::loadValue() {}
-void Metric::saveValue() {}
+void Metric::loadState() {}
+void Metric::saveState() {}
 
 void Metric::onUpdate(std::function<void()> handler)
 {
@@ -67,7 +77,6 @@ void Metric::invalidate()
 {
   valid = false;
   markAsUpdated();
-  save();
 }
 
 void Metric::redact()

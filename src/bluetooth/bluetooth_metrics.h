@@ -14,7 +14,6 @@ class BluetoothMetrics
     void loop();
 
   private:
-    Vehicle *vehicle;
     BLECharacteristic *characteristics[16];
     uint8_t totalCharacteristics = 0;
     uint8_t characteristicValueBuffer[GROUPED_METRIC_DATA_LEN];

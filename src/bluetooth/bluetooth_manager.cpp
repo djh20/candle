@@ -1,5 +1,6 @@
-#include "bluetooth.h"
+#include "bluetooth_manager.h"
 #include "../config.h"
+#include "../vehicle/vehicle_manager.h"
 #include "bluetooth_device_info.h"
 #include "bluetooth_ota.h"
 #include "bluetooth_metrics.h"
@@ -7,9 +8,9 @@
 
 #define ADVERTISE_DELAY 500
 
-void Bluetooth::begin()
+void BluetoothManager::begin()
 {
-  BLEDevice::init(GlobalConfig.hostname->value);
+  BLEDevice::init(GlobalConfig.hostname->getValue());
   
   server = BLEDevice::createServer();
   server->setCallbacks(this);
@@ -21,22 +22,29 @@ void Bluetooth::begin()
   if (encrypted)
   {
     BLESecurity *security = new BLESecurity();
-    security->setStaticPIN(GlobalConfig.blePin->value);
+    security->setStaticPIN(GlobalConfig.blePin->getValue());
     security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_MITM_BOND);
     security->setCapability(ESP_IO_CAP_OUT);
 
-    log_i("Bluetooth pin is %u", GlobalConfig.blePin->value);
+    log_i("Bluetooth pin is %u", GlobalConfig.blePin->getValue());
   }
 
   GlobalBluetoothDeviceInfo.begin();
   GlobalBluetoothOTA.begin();
-  GlobalBluetoothMetrics.begin();
+  // GlobalBluetoothMetrics.begin();
 }
 
-void Bluetooth::loop()
+void BluetoothManager::loop()
 {
   GlobalBluetoothOTA.loop();
-  GlobalBluetoothMetrics.loop();
+  // GlobalBluetoothMetrics.loop();
+
+  Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+
+  if (vehicle)
+  {
+    setCanAdvertise(!vehicle->ignition->valid || vehicle->ignition->getValue());
+  }
   
   uint32_t now = millis();
   if (!advertising && !clientConnected && canAdvertise && now - lastDisconnectMillis >= ADVERTISE_DELAY)
@@ -53,34 +61,34 @@ void Bluetooth::loop()
   }
 }
 
-void Bluetooth::onConnect(BLEServer* pServer) {
+void BluetoothManager::onConnect(BLEServer* pServer) {
   clientConnected = true;
   advertising = false;
   log_i("Bluetooth client connected");
 }
 
-void Bluetooth::onDisconnect(BLEServer* pServer) {
+void BluetoothManager::onDisconnect(BLEServer* pServer) {
   lastDisconnectMillis = millis();
   clientConnected = false;
   log_i("Bluetooth client disconnected");
 }
 
-void Bluetooth::setCanAdvertise(bool value)
+void BluetoothManager::setCanAdvertise(bool value)
 {
   canAdvertise = value;
 }
 
-BLEServer *Bluetooth::getServer()
+BLEServer *BluetoothManager::getServer()
 {
   return server;
 }
 
-bool Bluetooth::getClientConnected()
+bool BluetoothManager::getClientConnected()
 {
   return clientConnected;
 }
 
-BLEUUID Bluetooth::uuid(bool custom, uint16_t id, uint16_t discriminator) 
+BLEUUID BluetoothManager::uuid(bool custom, uint16_t id, uint16_t discriminator) 
 {
   if (custom)
   {
@@ -98,7 +106,7 @@ BLEUUID Bluetooth::uuid(bool custom, uint16_t id, uint16_t discriminator)
   }
 }
 
-esp_gatt_perm_t Bluetooth::getAccessPermissions()
+esp_gatt_perm_t BluetoothManager::getAccessPermissions()
 {
   if (GlobalConfig.getBluetoothMode() == BLE_MODE_ENCRYPTED)
   {
@@ -110,4 +118,4 @@ esp_gatt_perm_t Bluetooth::getAccessPermissions()
   }
 }
 
-Bluetooth GlobalBluetooth;
+BluetoothManager GlobalBluetoothManager;

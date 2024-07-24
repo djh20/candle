@@ -1,5 +1,5 @@
 #include "bluetooth_ota.h"
-#include "bluetooth.h"
+#include "bluetooth_manager.h"
 #include <BLEService.h>
 #include <BLE2902.h>
 
@@ -19,12 +19,12 @@ void BluetoothOTA::begin()
   const esp_partition_t *running = esp_ota_get_running_partition();
   esp_ota_get_state_partition(running, &partitionState);
 
-  BLEService *service = GlobalBluetooth.getServer()->createService(
-    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_SERVICE_OTA)
+  BLEService *service = GlobalBluetoothManager.getServer()->createService(
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_SERVICE_OTA)
   );
 
   commandCharacteristic = service->createCharacteristic(
-    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
@@ -32,21 +32,21 @@ void BluetoothOTA::begin()
   );
 
   // TODO: Maybe OTA should only be available once a pin has been set.
-  commandCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+  commandCharacteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
   commandCharacteristic->setCallbacks(this);
 
   BLEDescriptor *notifyDescriptor = new BLE2902();
-  notifyDescriptor->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+  notifyDescriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
   commandCharacteristic->addDescriptor(notifyDescriptor);
 
   dataCharacteristic = service->createCharacteristic(
-    GlobalBluetooth.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_INDICATE
   );
 
-  dataCharacteristic->setAccessPermissions(GlobalBluetooth.getAccessPermissions());
+  dataCharacteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
   dataCharacteristic->setCallbacks(this);
 
   service->start();
