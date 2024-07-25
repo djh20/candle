@@ -70,6 +70,8 @@ void BluetoothManager::setEnabled(bool enabled)
 {
   if (enabled == this->enabled) return;
 
+  log_i("Bluetooth is now %s", enabled ? "enabled" : "disabled");
+
   if (!enabled) disconnectClient();
   
   this->enabled = enabled;

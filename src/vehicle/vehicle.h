@@ -4,7 +4,6 @@
 #include "../metric/metric_int.h"
 #include "can/can_bus.h"
 #include "can/task.h"
-// #include "can/poll_task.h"
 
 #define VEHICLE_MAX_BUSES 4
 #define VEHICLE_MAX_TASKS 16
