@@ -42,17 +42,21 @@ class BluetoothManager: public BLEServerCallbacks
     void onConnect(BLEServer* pServer);
     void onDisconnect(BLEServer* pServer);
 
-    void setCanAdvertise(bool value);
+    void setEnabled(bool enabled);
+    // void setCanAdvertise(bool value);
     BLEServer *getServer();
     bool getClientConnected();
     BLEUUID uuid(bool custom, uint16_t id, uint16_t discriminator = 0x0000);
     esp_gatt_perm_t getAccessPermissions();
   
   private:
+    void disconnectClient();
+
     BLEServer *server;
+    bool enabled = false;
     bool clientConnected = false;
     bool advertising = false;
-    bool canAdvertise = true;
+    // bool canAdvertise = true;
     uint32_t lastDisconnectMillis = 0;
 
     // Custom UUID Format (Randomly Generated):

@@ -1,6 +1,6 @@
 #include "bluetooth_manager.h"
-#include "../config.h"
-#include "../vehicle/vehicle_manager.h"
+#include "../../config.h"
+#include "../../vehicle/vehicle_manager.h"
 #include "bluetooth_device_info.h"
 #include "bluetooth_ota.h"
 #include "bluetooth_metrics.h"
@@ -38,22 +38,15 @@ void BluetoothManager::loop()
 {
   GlobalBluetoothOTA.loop();
   // GlobalBluetoothMetrics.loop();
-
-  Vehicle *vehicle = GlobalVehicleManager.getVehicle();
-
-  if (vehicle)
-  {
-    setCanAdvertise(!vehicle->ignition->valid || vehicle->ignition->getValue());
-  }
   
   uint32_t now = millis();
-  if (!advertising && !clientConnected && canAdvertise && now - lastDisconnectMillis >= ADVERTISE_DELAY)
+  if (!advertising && !clientConnected && enabled && now - lastDisconnectMillis >= ADVERTISE_DELAY)
   {
     BLEDevice::startAdvertising();
     advertising = true;
     log_i("Started bluetooth advertising");
   }
-  else if (advertising && !canAdvertise)
+  else if (advertising && !enabled)
   {
     BLEDevice::stopAdvertising();
     advertising = false;
@@ -73,10 +66,19 @@ void BluetoothManager::onDisconnect(BLEServer* pServer) {
   log_i("Bluetooth client disconnected");
 }
 
-void BluetoothManager::setCanAdvertise(bool value)
+void BluetoothManager::setEnabled(bool enabled)
 {
-  canAdvertise = value;
+  if (enabled == this->enabled) return;
+
+  if (!enabled) disconnectClient();
+  
+  this->enabled = enabled;
 }
+
+// void BluetoothManager::setCanAdvertise(bool value)
+// {
+//   canAdvertise = value;
+// }
 
 BLEServer *BluetoothManager::getServer()
 {
@@ -115,6 +117,14 @@ esp_gatt_perm_t BluetoothManager::getAccessPermissions()
   else
   {
     return ESP_GATT_PERM_READ | ESP_GATT_PERM_WRITE;
+  }
+}
+
+void BluetoothManager::disconnectClient()
+{
+  if (server->getConnectedCount() > 0)
+  {
+    server->disconnect(server->getConnId());
   }
 }
 

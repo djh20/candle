@@ -1,8 +1,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "vehicle/vehicle_manager.h"
-#include "bluetooth/bluetooth_manager.h"
-#include "wifi/wifi_manager.h"
+#include "wireless/wireless_manager.h"
 #include "serial/serial_terminal.h"
 // #include "metric/metric_manager.h"
 
@@ -35,8 +34,7 @@ void setup()
 
   GlobalConfig.begin();
   GlobalVehicleManager.begin();
-  GlobalBluetoothManager.begin();
-  GlobalWiFiManager.begin();
+  GlobalWirelessManager.begin();
 }
 
 void loop()
@@ -46,7 +44,6 @@ void loop()
   #endif
   
   GlobalVehicleManager.loop();
-  GlobalBluetoothManager.loop();
-  GlobalWiFiManager.loop();
+  GlobalWirelessManager.loop();
   // GlobalMetricManager.loop();
 }

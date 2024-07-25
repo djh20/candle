@@ -1,6 +1,6 @@
 #include "config.h"
 #include "metric/metric_manager.h"
-#include "bluetooth/bluetooth_manager.h"
+#include "wireless/bluetooth/bluetooth_manager.h"
 
 static const char *domain = "mcu";
 

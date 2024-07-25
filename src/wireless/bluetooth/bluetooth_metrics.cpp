@@ -1,6 +1,6 @@
 #include "bluetooth_metrics.h"
 #include "bluetooth_manager.h"
-#include "../metric/metric_manager.h"
+#include "../../metric/metric_manager.h"
 #include <BLEService.h>
 #include <BLE2902.h>
 
