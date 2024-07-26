@@ -2,7 +2,7 @@
 #include "config.h"
 #include "vehicle/vehicle_manager.h"
 #include "wireless/wireless_manager.h"
-#include "serial/serial_terminal.h"
+#include "serial/serial_console.h"
 // #include "metric/metric_manager.h"
 
 #if ARDUHAL_LOG_LEVEL > ARDUHAL_LOG_LEVEL_NONE
@@ -40,7 +40,7 @@ void setup()
 void loop()
 {
   #ifdef SERIAL_ENABLE
-  GlobalSerialTerminal.loop();
+  GlobalSerialConsole.loop();
   #endif
   
   GlobalVehicleManager.loop();

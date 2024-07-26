@@ -4,6 +4,7 @@
 #include "bluetooth_device_info.h"
 #include "bluetooth_ota.h"
 #include "bluetooth_metrics.h"
+#include "bluetooth_console.h"
 #include <BLEDevice.h>
 
 #define ADVERTISE_DELAY 500
@@ -31,6 +32,7 @@ void BluetoothManager::begin()
 
   GlobalBluetoothDeviceInfo.begin();
   GlobalBluetoothOTA.begin();
+  GlobalBluetoothConsole.begin();
   // GlobalBluetoothMetrics.begin();
 }
 

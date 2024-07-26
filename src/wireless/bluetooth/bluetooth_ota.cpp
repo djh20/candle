@@ -174,7 +174,8 @@ void BluetoothOTA::sendResponse(uint8_t statusCode)
   commandCharacteristic->notify();
 }
 
-void BluetoothOTA::onWrite(BLECharacteristic* pCharacteristic, esp_ble_gatts_cb_param_t* param) {
+void BluetoothOTA::onWrite(BLECharacteristic* pCharacteristic, esp_ble_gatts_cb_param_t* param)
+{
   if (pCharacteristic == commandCharacteristic)
   {
     processCommand(pCharacteristic->getData(), pCharacteristic->getLength());

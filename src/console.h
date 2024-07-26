@@ -2,21 +2,20 @@
 
 #include <Arduino.h>
 
-#define SERIAL_CMD_MAX_LEN 256
-
-class SerialTerminal
+class Console
 {
   public:
-    void loop();
+    void processChar(const char c);
+    void processString(const char *str);
 
   private:
     void runCommand();
     void nextArg(char *&currentArg);
     
-    char cmdBuffer[SERIAL_CMD_MAX_LEN] = {};
+    char cmdBuffer[256] = {};
     uint8_t cmdBufferIndex = 0;
     bool waitingForNextArg = false;
     bool quoted = false;
 };
 
-extern SerialTerminal GlobalSerialTerminal;
+extern Console GlobalConsole;

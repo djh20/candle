@@ -1,45 +1,50 @@
-#include "serial_terminal.h"
-#include "../vehicle/vehicle_manager.h"
-#include "../metric/metric_manager.h"
+#include "console.h"
+#include "vehicle/vehicle_manager.h"
+#include "metric/metric_manager.h"
 
-void SerialTerminal::loop()
+void Console::processChar(const char c)
 {
-  while (Serial.available() > 0)
+  if (c == '\n' || c == ';')
   {
-    char incomingChar = Serial.read();
-
-    if (incomingChar == '\n' || incomingChar == ';')
+    runCommand();
+    waitingForNextArg = false;
+    quoted = false;
+    cmdBufferIndex = 0;
+    memset(cmdBuffer, 0, sizeof(cmdBuffer));
+  }
+  else if (c == '"')
+  {
+    quoted = !quoted;
+  }
+  else if (c == ' ' && !quoted)
+  {
+    if (cmdBufferIndex > 0) // Ignore spaces before command.
     {
-      runCommand();
+      waitingForNextArg = true;
+    }
+  }
+  else if (c != '\r')
+  {
+    if (waitingForNextArg)
+    {
+      cmdBufferIndex++; // Leave gap between arguments (null terminator).
       waitingForNextArg = false;
-      quoted = false;
-      cmdBufferIndex = 0;
-      memset(cmdBuffer, 0, sizeof(cmdBuffer));
     }
-    else if (incomingChar == '"')
-    {
-      quoted = !quoted;
-    }
-    else if (incomingChar == ' ' && !quoted)
-    {
-      if (cmdBufferIndex > 0) // Ignore spaces before command.
-      {
-        waitingForNextArg = true;
-      }
-    }
-    else if (incomingChar != '\r')
-    {
-      if (waitingForNextArg)
-      {
-        cmdBufferIndex++; // Leave gap between arguments (null terminator).
-        waitingForNextArg = false;
-      }
-      cmdBuffer[cmdBufferIndex++] = incomingChar;
-    } 
+    cmdBuffer[cmdBufferIndex++] = c;
+  } 
+}
+
+void Console::processString(const char *str)
+{
+  size_t len = strlen(str);
+
+  for (uint8_t i = 0; i < len; i++)
+  {
+    processChar(str[i]);
   }
 }
 
-void SerialTerminal::runCommand()
+void Console::runCommand()
 {
   char *arg = cmdBuffer;
 
@@ -154,9 +159,9 @@ void SerialTerminal::runCommand()
   }
 }
 
-void SerialTerminal::nextArg(char *&currentArg)
+void Console::nextArg(char *&currentArg)
 {
   currentArg += strlen(currentArg) + 1;
 }
 
-SerialTerminal GlobalSerialTerminal;
+Console GlobalConsole;
