@@ -14,8 +14,8 @@ class FloatMetric: public Metric
     void setValue(float newValue, uint8_t elementIndex = 0);
     void setValue(const char *newValue, uint8_t elementIndex = 0) override;
     float getValue(uint8_t elementIndex = 0);
+    void getState(char *str) override;
 
-    void getStateString(char *str) override;
     void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) override;
     void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override;
     uint8_t getValueDataLength() override;
@@ -23,6 +23,8 @@ class FloatMetric: public Metric
     Precision precision;
 
   protected:
+    void getValue(JsonArray &json, uint8_t elementIndex = 0) override;
+
     void loadState() override;
     void saveState() override;
 

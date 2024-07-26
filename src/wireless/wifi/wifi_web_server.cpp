@@ -1,5 +1,6 @@
 #include "wifi_web_server.h"
 #include "../../vehicle/vehicle_manager.h"
+#include "../../metric/metric_manager.h"
 
 void WiFiWebServer::begin()
 {
@@ -32,6 +33,21 @@ void WiFiWebServer::begin()
     {
       request->send(400, "text/plain", "ERROR: Missing parameter");
     }
+  });
+
+  server.on("/api/metrics", HTTP_GET, [this](AsyncWebServerRequest *request)
+  {
+    AsyncResponseStream *response = request->beginResponseStream("application/json");
+
+    for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics; i++)
+    {
+      Metric *metric = GlobalMetricManager.metrics[i];
+      metric->getState(doc);
+    }
+
+    serializeJson(doc, *response);
+    request->send(response);
+    doc.clear();
   });
 
   server.begin();

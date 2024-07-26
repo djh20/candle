@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <Preferences.h>
+#include <ArduinoJson.h>
 
 enum class MetricType
 {
@@ -58,7 +59,8 @@ class Metric
     void redact();
 
     virtual void setValue(const char *value, uint8_t elementIndex = 0) = 0;
-    virtual void getStateString(char *str) = 0;
+    virtual void getState(char *str) = 0;
+    void getState(JsonDocument &json);
 
     virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex);
     virtual void getValueData(uint8_t *buffer, uint8_t &bufferIndex) = 0;
@@ -79,6 +81,8 @@ class Metric
     uint8_t elementCount = 0;
 
   protected:
+    virtual void getValue(JsonArray &json, uint8_t elementIndex = 0) = 0;
+
     void markAsUpdated();
     virtual void loadState();
     virtual void saveState();

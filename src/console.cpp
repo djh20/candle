@@ -85,7 +85,7 @@ void Console::runCommand()
       }
 
       metric->save();
-      metric->getStateString(arg); // Reuse command buffer
+      metric->getState(arg); // Reuse command buffer
       log_i("Set [%s] to [%s]", metric->id, arg);
     }
     else if (strcmp(arg, "invalidate") == 0)
@@ -96,7 +96,7 @@ void Console::runCommand()
     }
     else if (strlen(arg) == 0)
     {
-      metric->getStateString(arg); // Reuse command buffer
+      metric->getState(arg); // Reuse command buffer
       log_i("Current State: %s (%s)", arg, metric->valid ? "valid" : "invalid");
       log_i("Last Updated: %u", metric->lastUpdateMillis);
     }

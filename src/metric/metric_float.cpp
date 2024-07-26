@@ -44,7 +44,13 @@ float FloatMetric<E>::getValue(uint8_t elementIndex)
 }
 
 template <uint8_t E>
-void FloatMetric<E>::getStateString(char *str)
+void FloatMetric<E>::getValue(JsonArray &json, uint8_t elementIndex)
+{
+  json.add(getValue(elementIndex));
+}
+
+template <uint8_t E>
+void FloatMetric<E>::getState(char *str)
 {
   for (uint8_t i = 0; i < E; i++)
   {

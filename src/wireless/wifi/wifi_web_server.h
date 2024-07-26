@@ -2,6 +2,7 @@
 
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ArduinoJson.h>
 
 class WiFiWebServer
 {
@@ -11,6 +12,7 @@ class WiFiWebServer
 
   private:
     AsyncWebServer server = AsyncWebServer(80);
+    JsonDocument doc;
 };
 
 extern WiFiWebServer GlobalWiFiWebServer;

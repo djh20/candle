@@ -84,6 +84,28 @@ void Metric::redact()
   redacted = true;
 }
 
+void Metric::getState(JsonDocument &json)
+{
+  if (redacted)
+  {
+    json[domain][localId] = "REDACTED";
+  }
+  else if (!valid)
+  {
+    json[domain][localId] = nullptr;
+  }
+  else
+  {
+    JsonArray arr = json[domain][localId].to<JsonArray>();
+    for (uint8_t i = 0; i < elementCount; i++)
+    {
+      getValue(arr, i);
+    }
+
+    if (elementCount == 1) json[domain][localId] = arr[0];
+  }
+}
+
 void Metric::markAsUpdated()
 {
   lastUpdateMillis = millis();
