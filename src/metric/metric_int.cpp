@@ -22,6 +22,12 @@ void IntMetric<E>::setValue(const char *newValue, uint8_t elementIndex)
 }
 
 template <uint8_t E>
+void IntMetric<E>::getValue(char *buffer, uint8_t elementIndex)
+{
+  sprintf(buffer, "%d", getValue(elementIndex));
+}
+
+template <uint8_t E>
 int32_t IntMetric<E>::getValue(uint8_t elementIndex)
 {
   return state[elementIndex];
@@ -31,21 +37,6 @@ template <uint8_t E>
 void IntMetric<E>::getValue(JsonArray &json, uint8_t elementIndex)
 {
   json.add(getValue(elementIndex));
-}
-
-template <uint8_t E>
-void IntMetric<E>::getState(char *str)
-{
-  for (uint8_t i = 0; i < E; i++)
-  {
-    if (i > 0)
-    {
-      *str = ',';
-      str++;
-    }
-    
-    str += sprintf(str, "%d", state[i]);
-  }
 }
 
 template <uint8_t E>

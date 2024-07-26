@@ -11,8 +11,9 @@ class StringMetric: public Metric
     );
     
     void setValue(const char *value, uint8_t elementIndex = 0) override;
+
+    void getValue(char *buffer, uint8_t elementIndex = 0) override;
     char *getValue(uint8_t elementIndex = 0);
-    void getState(char *str) override;
     
     void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override;
     uint8_t getValueDataLength() override;

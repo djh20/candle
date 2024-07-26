@@ -59,7 +59,9 @@ class Metric
     void redact();
 
     virtual void setValue(const char *value, uint8_t elementIndex = 0) = 0;
-    virtual void getState(char *str) = 0;
+    virtual void getValue(char *buffer, uint8_t elementIndex = 0) = 0;
+
+    void getState(char *buffer);
     void getState(JsonDocument &json);
 
     virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex);

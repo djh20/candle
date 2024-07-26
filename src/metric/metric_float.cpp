@@ -38,6 +38,12 @@ void FloatMetric<E>::setValue(const char *newValue, uint8_t elementIndex)
 }
 
 template <uint8_t E>
+void FloatMetric<E>::getValue(char *buffer, uint8_t elementIndex)
+{
+  sprintf(buffer, "%f", getValue(elementIndex));
+}
+
+template <uint8_t E>
 float FloatMetric<E>::getValue(uint8_t elementIndex)
 {
   return state[elementIndex];
@@ -47,21 +53,6 @@ template <uint8_t E>
 void FloatMetric<E>::getValue(JsonArray &json, uint8_t elementIndex)
 {
   json.add(getValue(elementIndex));
-}
-
-template <uint8_t E>
-void FloatMetric<E>::getState(char *str)
-{
-  for (uint8_t i = 0; i < E; i++)
-  {
-    if (i > 0)
-    {
-      *str = ',';
-      str++;
-    }
-    
-    str += sprintf(str, "%f", state[i]);
-  }
 }
 
 template <uint8_t E>

@@ -37,6 +37,12 @@ void StringMetric<E>::setValue(const char *newValue, uint8_t elementIndex)
 }
 
 template <uint8_t E>
+void StringMetric<E>::getValue(char *buffer, uint8_t elementIndex)
+{
+  strcpy(buffer, getValue(elementIndex));
+}
+
+template <uint8_t E>
 char *StringMetric<E>::getValue(uint8_t elementIndex)
 {
   return state + (elementIndex * elementSize);
@@ -46,23 +52,6 @@ template <uint8_t E>
 void StringMetric<E>::getValue(JsonArray &json, uint8_t elementIndex)
 {
   json.add(getValue(elementIndex));
-}
-
-template <uint8_t E>
-void StringMetric<E>::getState(char *str)
-{
-  for (uint8_t i = 0; i < E; i++)
-  {
-    if (i > 0)
-    {
-      *str = ',';
-      str++;
-    }
-    
-    char *element = state + (i * elementSize);
-    strncpy(str, element, elementSize);
-    str += strnlen(element, elementSize);
-  }
 }
 
 template <uint8_t E>

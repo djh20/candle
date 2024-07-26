@@ -84,6 +84,21 @@ void Metric::redact()
   redacted = true;
 }
 
+void Metric::getState(char *buffer)
+{
+  for (uint8_t i = 0; i < elementCount; i++)
+  {
+    if (i > 0)
+    {
+      *buffer = ',';
+      buffer++;
+    }
+
+    getValue(buffer, i);
+    buffer += strlen(buffer);
+  }
+}
+
 void Metric::getState(JsonDocument &json)
 {
   if (redacted)
