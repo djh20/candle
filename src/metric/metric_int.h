@@ -6,24 +6,64 @@ template <uint8_t E>
 class IntMetric: public Metric 
 {
   public:
-    IntMetric(
-      const char *domain, const char *localId, MetricType type, Unit unit = Unit::None
-    );
+    IntMetric(const char *domain, const char *localId, MetricType type, Unit unit = Unit::None)
+      : Metric(domain, localId, type, MetricDataType::Int, unit, E) {}
 
-    void setValue(const char *newValue, uint8_t elementIndex = 0) override;
-    void setValue(int32_t newValue, uint8_t elementIndex = 0);
-    
-    void getValue(char *buffer, uint8_t elementIndex = 0) override;
-    int32_t getValue(uint8_t elementIndex = 0);
+    void setValue(const char *newValue, uint8_t elementIndex = 0) override
+    {
+      setValue(strtol(newValue, nullptr, 0), elementIndex);
+    }
 
-    void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override;
-    uint8_t getValueDataLength() override;
+    void getValue(char *buffer, uint8_t elementIndex = 0) override
+    {
+      sprintf(buffer, "%d", getValue(elementIndex));
+    }
+
+    void setValue(int32_t newValue, uint8_t elementIndex = 0)
+    {
+      if (newValue == getValue(elementIndex) && valid) return;
+
+      valid = true;
+      state[elementIndex] = newValue;
+
+      markAsUpdated();
+    }
+
+    int32_t getValue(uint8_t elementIndex = 0)
+    {
+      return state[elementIndex];
+    }
+
+    void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override 
+    {
+      // TODO: Implement
+      // buffer[bufferIndex++] = valid;
+      // buffer[bufferIndex++] = value >> 24;
+      // buffer[bufferIndex++] = value >> 16;
+      // buffer[bufferIndex++] = value >> 8;
+      // buffer[bufferIndex++] = value;
+    }
+
+    uint8_t getValueDataLength() override 
+    {
+      return 5;
+    }
 
   protected:
-    void getValue(JsonArray &json, uint8_t elementIndex = 0) override;
+    void getValue(JsonArray &json, uint8_t elementIndex = 0) override
+    {
+      json.add(getValue(elementIndex));
+    }
 
-    void loadState() override;
-    void saveState() override;
+    void loadState() override
+    {
+      prefs.getBytes(localId, state, sizeof(state));
+    }
+
+    void saveState() override
+    {
+      prefs.putBytes(localId, state, sizeof(state));
+    }
 
   private:
     int32_t state[E] = {};

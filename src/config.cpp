@@ -38,6 +38,7 @@ void Config::begin()
   GlobalMetricManager.registerMetric(vehicleId);
 
   blePin = new IntMetric<1>(domain, "ble_pin", MetricType::Parameter);
+  blePin->redact();
   GlobalMetricManager.registerMetric(blePin);
 
   wifiNetworks = new StringMetric<4>(domain, "wifi_networks", MetricType::Parameter, 32);
