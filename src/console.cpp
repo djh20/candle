@@ -88,6 +88,18 @@ void Console::runCommand()
       metric->getState(arg); // Reuse command buffer
       log_i("Set [%s] to [%s]", metric->id, arg);
     }
+    else if (strcmp(arg, "modify") == 0)
+    {
+      nextArg(arg);
+      uint8_t element = strtol(arg, nullptr, 0);
+      
+      nextArg(arg);
+      metric->setValue(arg, element);
+
+      metric->save();
+      metric->getState(arg); // Reuse command buffer
+      log_i("Set [%s] to [%s]", metric->id, arg);
+    }
     else if (strcmp(arg, "invalidate") == 0)
     {
       metric->invalidate();
