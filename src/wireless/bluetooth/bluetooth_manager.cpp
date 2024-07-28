@@ -33,13 +33,13 @@ void BluetoothManager::begin()
   GlobalBluetoothDeviceInfo.begin();
   GlobalBluetoothOTA.begin();
   GlobalBluetoothConsole.begin();
-  // GlobalBluetoothMetrics.begin();
+  GlobalBluetoothMetrics.begin();
 }
 
 void BluetoothManager::loop()
 {
   GlobalBluetoothOTA.loop();
-  // GlobalBluetoothMetrics.loop();
+  GlobalBluetoothMetrics.loop();
   
   uint32_t now = millis();
   if (!advertising && !clientConnected && enabled && now - lastDisconnectMillis >= ADVERTISE_DELAY)
@@ -89,7 +89,7 @@ BLEServer *BluetoothManager::getServer()
   return server;
 }
 
-bool BluetoothManager::getClientConnected()
+bool BluetoothManager::isClientConnected()
 {
   return clientConnected;
 }

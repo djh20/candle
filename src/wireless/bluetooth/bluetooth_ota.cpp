@@ -20,11 +20,11 @@ void BluetoothOTA::begin()
   esp_ota_get_state_partition(running, &partitionState);
 
   BLEService *service = GlobalBluetoothManager.getServer()->createService(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_SERVICE_OTA)
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_S_OTA)
   );
 
   commandCharacteristic = service->createCharacteristic(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_COMMAND),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_OTA_COMMAND),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
@@ -40,7 +40,7 @@ void BluetoothOTA::begin()
   commandCharacteristic->addDescriptor(notifyDescriptor);
 
   dataCharacteristic = service->createCharacteristic(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_OTA_DATA),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_OTA_DATA),
     BLECharacteristic::PROPERTY_WRITE |
     BLECharacteristic::PROPERTY_WRITE_NR |
     BLECharacteristic::PROPERTY_INDICATE

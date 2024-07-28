@@ -25,7 +25,7 @@ void MetricManager::registerMetric(Metric *metric)
 {
   metrics[totalMetrics++] = metric;
   metric->begin();
-  log_i("Registered metric: %s", metric->id);
+  log_i("Registered metric: [%s]", metric->id);
 }
 
 Metric *MetricManager::getMetric(const char *id)

@@ -2,7 +2,7 @@
 #include "wifi_web_server.h"
 #include "../../config.h"
 
-#define SCAN_INTERVAL 60000
+#define SCAN_INTERVAL 300000 // 5 minutes
 
 void WiFiManager::begin()
 {

@@ -5,18 +5,18 @@
 void BluetoothConsole::begin()
 {
   BLEService *consoleService = GlobalBluetoothManager.getServer()->createService(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_SERVICE_CONSOLE)
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_S_CONSOLE)
   );
   
   commandCharacteristic = consoleService->createCharacteristic(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_CONSOLE_COMMAND),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_CONSOLE_COMMAND),
     BLECharacteristic::PROPERTY_WRITE
   );
   commandCharacteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
   commandCharacteristic->setCallbacks(this);
 
   resultCharacteristic = consoleService->createCharacteristic(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_CHARACTERISTIC_CONSOLE_RESULT),
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_CONSOLE_RESULT),
     BLECharacteristic::PROPERTY_READ |
     BLECharacteristic::PROPERTY_NOTIFY
   );

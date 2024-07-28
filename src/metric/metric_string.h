@@ -38,15 +38,27 @@ class StringMetric: public Metric
       return state + (elementIndex * elementSize);
     }
     
-    void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override
+    void getStateData(uint8_t *buffer, uint8_t &bufferIndex) override 
     {
-      // TODO: Implement
+      Metric::getStateData(buffer, bufferIndex);
+      memcpy(buffer+bufferIndex, state, stateSize);
+      bufferIndex += stateSize;
     }
 
-    uint8_t getValueDataLength() override
+    uint8_t getStateDataSize() override
     {
-      // TODO: Implement
-      return 0;
+      return Metric::getStateDataSize() + stateSize;
+    }
+
+    void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t stateDataIndex) override
+    {
+      Metric::getDescriptorData(buffer, bufferIndex, stateDataIndex);
+      buffer[bufferIndex++] = elementSize;
+    }
+
+    uint8_t getDescriptorDataSize() override
+    {
+      return Metric::getDescriptorDataSize() + 1;
     }
 
     void addToJsonDocument(JsonDocument &doc);

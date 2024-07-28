@@ -4,10 +4,12 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
+#define METRIC_TYPE_ENUM_COUNT 2
+
 enum class MetricType
 {
-  Statistic,
-  Parameter
+  Parameter,
+  Statistic
 };
 
 enum class MetricDataType
@@ -64,9 +66,11 @@ class Metric
     void getState(char *buffer);
     void getState(JsonDocument &json);
 
-    virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex);
-    virtual void getValueData(uint8_t *buffer, uint8_t &bufferIndex) = 0;
-    virtual uint8_t getValueDataLength() = 0;
+    virtual void getStateData(uint8_t *buffer, uint8_t &bufferIndex);
+    virtual uint8_t getStateDataSize();
+
+    virtual void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t stateDataIndex);
+    virtual uint8_t getDescriptorDataSize();
     
     char *id;
     const char *domain;

@@ -34,19 +34,16 @@ class IntMetric: public Metric
       return state[elementIndex];
     }
 
-    void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override 
+    void getStateData(uint8_t *buffer, uint8_t &bufferIndex) override 
     {
-      // TODO: Implement
-      // buffer[bufferIndex++] = valid;
-      // buffer[bufferIndex++] = value >> 24;
-      // buffer[bufferIndex++] = value >> 16;
-      // buffer[bufferIndex++] = value >> 8;
-      // buffer[bufferIndex++] = value;
+      Metric::getStateData(buffer, bufferIndex);
+      memcpy(buffer+bufferIndex, state, sizeof(state));
+      bufferIndex += sizeof(state);
     }
 
-    uint8_t getValueDataLength() override 
+    uint8_t getStateDataSize() override
     {
-      return 5;
+      return Metric::getStateDataSize() + sizeof(state);
     }
 
   protected:

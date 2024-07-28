@@ -3,7 +3,7 @@
 #include "bluetooth/bluetooth_manager.h"
 #include "../vehicle/vehicle_manager.h"
 
-#define PROTOCOL_SWITCH_DELAY 1000
+#define PROTOCOL_SWITCH_DELAY 500
 
 void WirelessManager::begin()
 {

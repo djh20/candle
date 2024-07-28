@@ -127,14 +127,30 @@ void Metric::markAsUpdated()
   if (updateHandler) updateHandler();
 }
 
-void Metric::getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex)
+void Metric::getStateData(uint8_t *buffer, uint8_t &bufferIndex) 
 {
-  size_t idLen = strlen(localId);
-  
-  memcpy(buffer+bufferIndex, localId, idLen);
-  bufferIndex += idLen + 1; // Extra byte for null terminator.
+  buffer[bufferIndex++] = valid; // Flags (currently only used for validity)
+}
 
-  buffer[bufferIndex++] = valueDataIndex;
+uint8_t Metric::getStateDataSize()
+{
+  return 1;
+}
+
+void Metric::getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t stateDataIndex)
+{
+  size_t idLen = strlen(id);
+  memcpy(buffer+bufferIndex, id, idLen);
+  bufferIndex += idLen;
+  
+  buffer[bufferIndex++] = '\0';
+  buffer[bufferIndex++] = stateDataIndex;
+  buffer[bufferIndex++] = elementCount;
+  buffer[bufferIndex++] = (static_cast<uint8_t>(type) << 4) | static_cast<uint8_t>(dataType);
   buffer[bufferIndex++] = static_cast<uint8_t>(unit);
-  buffer[bufferIndex++] = static_cast<uint8_t>(dataType);
+}
+
+uint8_t Metric::getDescriptorDataSize()
+{
+  return strlen(id) + 5;
 }

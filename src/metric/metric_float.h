@@ -38,27 +38,36 @@ class FloatMetric: public Metric
     {
       return state[elementIndex];
     }
-    
-    void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t valueDataIndex) override
+
+    void getStateData(uint8_t *buffer, uint8_t &bufferIndex) override
     {
-      Metric::getDescriptorData(buffer, bufferIndex, valueDataIndex);
+      Metric::getStateData(buffer, bufferIndex);
+
+      for (uint8_t i = 0; i < elementCount; i++)
+      {
+        int32_t convertedValue = getValue(i) * (float)pow(10, static_cast<uint8_t>(precision));
+        memcpy(buffer+bufferIndex, &convertedValue, sizeof(convertedValue));
+        bufferIndex += sizeof(convertedValue);
+      }
+      
+      // memcpy(buffer+bufferIndex, state, sizeof(state));
+      // bufferIndex += sizeof(state);
+    }
+
+    uint8_t getStateDataSize() override
+    {
+      return Metric::getStateDataSize() + sizeof(state);
+    }
+    
+    void getDescriptorData(uint8_t *buffer, uint8_t &bufferIndex, uint8_t stateDataIndex) override
+    {
+      Metric::getDescriptorData(buffer, bufferIndex, stateDataIndex);
       buffer[bufferIndex++] = static_cast<uint8_t>(precision);
     }
 
-    void getValueData(uint8_t *buffer, uint8_t &bufferIndex) override
+    uint8_t getDescriptorDataSize() override
     {
-      // TODO: Implement
-      // int32_t convertedValue = value * (float)pow(10, (uint8_t)precision);
-      // buffer[bufferIndex++] = valid;
-      // buffer[bufferIndex++] = convertedValue >> 24;
-      // buffer[bufferIndex++] = convertedValue >> 16;
-      // buffer[bufferIndex++] = convertedValue >> 8;
-      // buffer[bufferIndex++] = convertedValue;
-    }
-
-    uint8_t getValueDataLength() override
-    {
-      return 5;
+      return Metric::getDescriptorDataSize() + 1;
     }
     
     Precision precision;
