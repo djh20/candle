@@ -2,11 +2,11 @@
 #include "metric/metric_manager.h"
 #include "wireless/bluetooth/bluetooth_manager.h"
 
-static const char *domain = "mcu";
+static const char *genericDomain = "mcu";
 
 void Config::begin()
 {
-  hostname = new StringMetric<1>(domain, "hostname", MetricType::Parameter, 16);
+  hostname = new StringMetric<1>(genericDomain, "hostname", MetricType::Parameter, 16);
   GlobalMetricManager.registerMetric(hostname);
 
   if (!hostname->valid)
@@ -34,17 +34,17 @@ void Config::begin()
     hostname->save();
   }
 
-  vehicleId = new StringMetric<1>(domain, "vehicle_id", MetricType::Parameter, 16);
+  vehicleId = new StringMetric<1>(genericDomain, "vehicle_id", MetricType::Parameter, 16);
   GlobalMetricManager.registerMetric(vehicleId);
 
-  blePin = new IntMetric<1>(domain, "ble_pin", MetricType::Parameter);
+  blePin = new IntMetric<1>("ble", "pin", MetricType::Parameter);
   blePin->redact();
   GlobalMetricManager.registerMetric(blePin);
 
-  wifiNetworks = new StringMetric<4>(domain, "wifi_networks", MetricType::Parameter, 32);
+  wifiNetworks = new StringMetric<4>("wifi", "networks", MetricType::Parameter, 32);
   GlobalMetricManager.registerMetric(wifiNetworks);
 
-  wifiPasswords = new StringMetric<4>(domain, "wifi_passwords", MetricType::Parameter, 32);
+  wifiPasswords = new StringMetric<4>("wifi", "passwords", MetricType::Parameter, 32);
   wifiPasswords->redact();
   GlobalMetricManager.registerMetric(wifiPasswords);
 }
