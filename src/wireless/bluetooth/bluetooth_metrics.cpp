@@ -30,7 +30,7 @@ void BluetoothMetrics::begin()
     // Create descriptor for grouped metric info.
     BLEDescriptor *descriptor = new BLEDescriptor(
       GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_D_GROUPED_METRIC_INFO), 
-      BLE_OPTIMAL_ATTRIBUTE_SIZE
+      sizeof(attributeBuffer)
     );
     descriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
     characteristic->addDescriptor(descriptor);
@@ -165,7 +165,7 @@ bool BluetoothMetrics::nextMetric(MetricGroupInfo &groupInfo)
     uint16_t newDescriptorSize = groupInfo.descriptorSize + metric->getDescriptorDataSize();
 
     // Check if the new sizes exceed the maximum attribute size.
-    if (newCharacteristicSize > BLE_OPTIMAL_ATTRIBUTE_SIZE || newDescriptorSize > BLE_OPTIMAL_ATTRIBUTE_SIZE)
+    if (newCharacteristicSize > sizeof(attributeBuffer) || newDescriptorSize > sizeof(attributeBuffer))
       break;
     
     // Assign the metric to the group and update sizes.
