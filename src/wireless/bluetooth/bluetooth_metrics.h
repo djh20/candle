@@ -15,6 +15,9 @@ struct MetricGroupInfo
   uint8_t metricType = 0;
   uint8_t metricIndex = 0;
   Metric *metric = nullptr;
+
+  uint8_t characteristicPos = 0;
+  uint8_t descriptorPos = 0;
   uint8_t characteristicSize = 0;
   uint8_t descriptorSize = 0;
 };
@@ -30,10 +33,9 @@ class BluetoothMetrics
     bool nextMetric(MetricGroupInfo &groupInfo);
 
     BLECharacteristic *characteristics[8] = {nullptr};
-    uint8_t totalCharacteristics = 0;
     
     uint8_t attributeBuffer[BLE_MAX_ATTRIBUTE_SIZE];
-    uint8_t attributeBufferIndex = 0;
+    uint8_t attributeBufferSize = 0;
     uint32_t lastUpdateMillis = 0;
 };
 
