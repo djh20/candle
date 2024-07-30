@@ -34,7 +34,7 @@ class BluetoothMetrics
 
     BLECharacteristic *characteristics[8] = {nullptr};
     
-    uint8_t attributeBuffer[BLE_MAX_ATTRIBUTE_SIZE];
+    uint8_t attributeBuffer[BLE_OPTIMAL_ATTRIBUTE_SIZE];
     uint8_t attributeBufferSize = 0;
     uint32_t lastUpdateMillis = 0;
 };
