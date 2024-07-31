@@ -4,11 +4,12 @@
 #include "../metric/metric_int.h"
 #include "can/can_bus.h"
 #include "can/task.h"
+#include "can/poll_task.h"
 
 #define VEHICLE_MAX_BUSES 4
 #define VEHICLE_MAX_TASKS 16
 
-class Vehicle 
+class Vehicle: public PollTaskCallbacks
 {
   public:
     Vehicle(const char* domain);
@@ -39,7 +40,7 @@ class Vehicle
     void handleBuses();
     void handleTasks();
     virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
-    // virtual void processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames);
+    virtual void onPollResponse(PollTask *task, uint8_t **frames);
     virtual void updateExtraMetrics();
     virtual void metricUpdated(Metric *metric);
     virtual void testCycle();

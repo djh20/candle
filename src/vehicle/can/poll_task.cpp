@@ -95,7 +95,7 @@ void PollTask::process()
   
   if (currentResFrameCount >= expectedResFrameCount) 
   {
-    if (onResponse) onResponse(resBuffer);
+    if (callbacks) callbacks->onPollResponse(this, resBuffer);
     endAttempt(true);
   }
   else if (data[0] == 0x10) 
@@ -117,4 +117,9 @@ void PollTask::configureResponse(uint32_t id, uint8_t totalFrames)
   {
     resBuffer[i] = new uint8_t[CAN_MAX_DLEN];
   }
+}
+
+void PollTask::setCallbacks(PollTaskCallbacks *callbacks)
+{
+  this->callbacks = callbacks;
 }

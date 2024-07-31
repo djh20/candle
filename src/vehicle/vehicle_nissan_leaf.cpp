@@ -66,35 +66,11 @@ void VehicleNissanLeaf::begin()
   keepAwakeTask->repeat();
 
   uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
-  PollTask *bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
+  bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsReqTask->configureResponse(0x7BB, 6);
   bmsReqTask->maxAttemptDuration = 500;
   bmsReqTask->maxAttempts = 4;
-
-  bmsReqTask->onResponse = [this](uint8_t **frames) {
-    int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
-    if (rawCurrentOne & 0x8000000 == 0x8000000) {
-      rawCurrentOne = rawCurrentOne | -0x100000000;
-    }
-
-    int32_t rawCurrentTwo = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
-    if (rawCurrentTwo & 0x8000000 == 0x8000000) {
-      rawCurrentTwo = rawCurrentTwo | -0x100000000;
-    }
-
-    batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
-    batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
-
-    float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
-    if (newSoc >= 0 && newSoc <= 100) {
-      if (newSoc >= soc->getValue()+5) endTrip(); // Detect if car has been charged.
-      soc->setValue(newSoc);
-    }
-
-    uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
-    // Convert Ah to kWh
-    batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
-  };
+  bmsReqTask->setCallbacks(this);
 
   bmsTask = new MultiTask("bms");
   bmsTask->add(0, keepAwakeTask, false);
@@ -237,42 +213,42 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
   }
 }
 
-// void VehicleNissanLeaf::processPollResponse(CanBus *bus, PollTask *task, uint8_t **frames)
-// {
-//   if (task == bmsTask)
-//   {
-//     int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
-//     if (rawCurrentOne & 0x8000000 == 0x8000000) {
-//       rawCurrentOne = rawCurrentOne | -0x100000000;
-//     }
+void VehicleNissanLeaf::onPollResponse(PollTask *task, uint8_t **frames)
+{
+  if (task == bmsReqTask)
+  {
+    int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
+    if (rawCurrentOne & 0x8000000 == 0x8000000) {
+      rawCurrentOne = rawCurrentOne | -0x100000000;
+    }
 
-//     int32_t rawCurrentTwo = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
-//     if (rawCurrentTwo & 0x8000000 == 0x8000000) {
-//       rawCurrentTwo = rawCurrentTwo | -0x100000000;
-//     }
+    int32_t rawCurrentTwo = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
+    if (rawCurrentTwo & 0x8000000 == 0x8000000) {
+      rawCurrentTwo = rawCurrentTwo | -0x100000000;
+    }
 
-//     batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
-//     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
+    batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
+    batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
 
-//     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
-//     if (newSoc >= 0 && newSoc <= 100) {
-//       if (newSoc >= soc->value+5) endTrip(); // Detect if car has been charged.
-//       soc->setValue(newSoc);
-//     }
+    float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
+    if (newSoc >= 0 && newSoc <= 100) {
+      if (newSoc >= soc->getValue()+5) endTrip(); // Detect if car has been charged.
+      soc->setValue(newSoc);
+    }
 
-//     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
-//     // Convert Ah to kWh
-//     batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
-//   }
-//   else if (task == quickChargesTask)
-//   {
-//     quickCharges->setValue((frames[0][4] << 8) | frames[0][5]);
-//   }
-//   else if (task == slowChargesTask)
-//   {
-//     slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
-//   }
-// }
+    uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
+    // Convert Ah to kWh
+    batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
+  }
+  // else if (task == quickChargesTask)
+  // {
+  //   quickCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+  // }
+  // else if (task == slowChargesTask)
+  // {
+  //   slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+  // }
+}
 
 void VehicleNissanLeaf::updateExtraMetrics()
 {
