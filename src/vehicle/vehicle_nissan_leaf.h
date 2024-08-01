@@ -34,8 +34,8 @@ class VehicleNissanLeaf: public Vehicle
     IntMetric<1> *turnSignal;
     IntMetric<1> *headlights;
     IntMetric<1> *parkBrake;
-    IntMetric<1> *quickCharges;
     IntMetric<1> *slowCharges;
+    IntMetric<1> *fastCharges;
     IntMetric<1> *tripDistance;
     IntMetric<1> *tripEfficiency;
 
@@ -73,5 +73,5 @@ class VehicleNissanLeaf: public Vehicle
     // MultiTask *fullDeactivateCcTask;
 
     PollTask *slowChargesTask;
-    PollTask *quickChargesTask;
+    PollTask *fastChargesTask;
 };

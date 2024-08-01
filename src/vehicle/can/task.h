@@ -2,12 +2,20 @@
 
 #include <Arduino.h>
 
+enum class TaskBehavior
+{
+  Manual,
+  Periodic
+};
+
 class Task 
 {
   public:
     Task(const char *id);
     
     bool run();
+    bool canRun();
+    
     void stop();
 
     void tick();
@@ -26,6 +34,11 @@ class Task
     uint16_t minAttempts = 1;
     uint16_t maxAttempts = 1;
 
+    uint32_t cooldown = 0;
+
+    uint32_t lastAttemptMillis = 0;
+    uint32_t lastFinishMillis = 0;
+
     std::function<void()> onFinish;
 
   protected:
@@ -37,9 +50,6 @@ class Task
     bool attemptInProgress;
     bool lastAttemptWasSuccessful;
     bool lastRunWasSuccessful;
-
-    uint32_t lastAttemptMillis = 0;
-    uint32_t lastSuccessMillis = 0;
 
     uint16_t attemptCount;
 

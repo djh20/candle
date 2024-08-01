@@ -19,6 +19,7 @@ class Vehicle: public PollTaskCallbacks
     
     void runTask(Task *task);
     Task *getTask(const char *id);
+    bool isTaskInQueue(Task *task);
 
     IntMetric<1> *ignition;
 
@@ -26,6 +27,7 @@ class Vehicle: public PollTaskCallbacks
     uint8_t totalBuses = 0;
 
     Task *tasks[VEHICLE_MAX_TASKS];
+    TaskBehavior taskBehavior[VEHICLE_MAX_TASKS];
     uint8_t totalTasks = 0;
 
     Task *taskQueue[VEHICLE_MAX_TASKS];
@@ -35,7 +37,7 @@ class Vehicle: public PollTaskCallbacks
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
     void registerMetrics(std::initializer_list<Metric*> metrics);
-    void registerTask(Task *task);
+    void registerTask(Task *task, TaskBehavior behavior = TaskBehavior::Manual);
 
     void handleBuses();
     void handleTasks();

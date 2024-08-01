@@ -61,9 +61,10 @@ void Vehicle::registerMetrics(std::initializer_list<Metric*> metrics)
   }
 }
 
-void Vehicle::registerTask(Task *task)
+void Vehicle::registerTask(Task *task, TaskBehavior behavior)
 {
-  tasks[totalTasks++] = task;
+  tasks[totalTasks] = task;
+  taskBehavior[totalTasks++] = behavior;
   log_i("Registered task: [%s]", task->id);
 }
 
@@ -100,8 +101,34 @@ Task *Vehicle::getTask(const char *id)
   return nullptr;
 }
 
+bool Vehicle::isTaskInQueue(Task *task)
+{
+  for (uint8_t i = 0; i < totalTasksInQueue; i++)
+  {
+    if (taskQueue[i] == task) return true;
+  }
+
+  return false;
+}
+
 void Vehicle::handleTasks()
 {
+  uint32_t now = millis();
+
+  for (uint8_t i = 0; i < totalTasks; i++)
+  {
+    Task *task = tasks[i];
+    TaskBehavior behavior = taskBehavior[i];
+
+    if (behavior == TaskBehavior::Periodic)
+    {
+      if (task->canRun() && !isTaskInQueue(task))
+      {
+        runTask(task);
+      }
+    }
+  }
+
   if (!currentTask && totalTasksInQueue > 0)
   {
     currentTask = taskQueue[0];

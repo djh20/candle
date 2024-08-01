@@ -41,8 +41,8 @@ void VehicleNissanLeaf::begin()
     headlights = new IntMetric<1>(domain, "headlights", MetricType::Statistic),
     parkBrake = new IntMetric<1>(domain, "park_brake", MetricType::Statistic),
 
-    quickCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
-    slowCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
+    slowCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
+    fastCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
 
     tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
     tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
@@ -50,21 +50,22 @@ void VehicleNissanLeaf::begin()
   
   uint8_t emptyReq[8] = {};
   genericWakeTask = new PollTask("generic_wake", mainBus, 0x682, emptyReq, 1);
-  // genericWakeTask->timeout = 50;
-  // genericWakeTask->minAttemptDuration = 50;
 
-  // Spoof BCM 'sleep wake up signal'
+  // This task spoofs the BCM wake up signal which causes some ECUs to come out of sleep 
+  // mode and begin communicating.
   uint8_t gatewayWakeReq[8] = {0x00, 0x03};
   gatewayWakeTask = new PollTask(
     "gateway_wake", mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq)
   );
 
+  // This task attempts to keep the bus awake by continuously sending wake requests.
   keepAwakeTask = new MultiTask("keep_awake");
   keepAwakeTask->add(0, genericWakeTask);
   keepAwakeTask->add(0, gatewayWakeTask);
   keepAwakeTask->minAttemptDuration = 50;
   keepAwakeTask->repeat();
-
+  
+  // This task requests battery stats from the BMS/LBC.
   uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
   bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsReqTask->configureResponse(0x7BB, 6);
@@ -75,9 +76,30 @@ void VehicleNissanLeaf::begin()
   bmsTask = new MultiTask("bms");
   bmsTask->add(0, keepAwakeTask, false);
   bmsTask->add(0, bmsReqTask);
-  registerTask(bmsTask);
-  // fullBmsTask->add(1, chargePortTask);
-  // registerPeriodicTask(fullBmsTask, 1000);
+  bmsTask->enabled = false;
+  registerTask(bmsTask, TaskBehavior::Periodic);
+
+  uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
+  slowChargesTask = new PollTask(
+    "slow_charges", mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq)
+  );
+  slowChargesTask->configureResponse(0x79A, 1);
+  slowChargesTask->maxAttemptDuration = 500;
+  slowChargesTask->cooldown = 300000;
+  slowChargesTask->enabled = false;
+  slowChargesTask->setCallbacks(this);
+  registerTask(slowChargesTask, TaskBehavior::Periodic);
+
+  uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
+  fastChargesTask = new PollTask(
+    "fast_charges", mainBus, 0x797, fastChargesReq, sizeof(fastChargesReq)
+  );
+  fastChargesTask->configureResponse(0x79A, 1);
+  fastChargesTask->maxAttemptDuration = 500;
+  fastChargesTask->cooldown = 300000;
+  fastChargesTask->enabled = false;
+  fastChargesTask->setCallbacks(this);
+  registerTask(fastChargesTask, TaskBehavior::Periodic);
 
   uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
@@ -277,7 +299,11 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   if (metric == ignition)
   {
-    // bmsTask->setEnabled(ignition->value);
+    // TODO: Enable BMS polling while charging.
+    bmsTask->cooldown = 200;
+    bmsTask->enabled = ignition->getValue();
+    slowChargesTask->enabled = ignition->getValue();
+    fastChargesTask->enabled = ignition->getValue();
     // slowChargesTask->setEnabled(ignition->value);
     // quickChargesTask->setEnabled(ignition->value);
   }

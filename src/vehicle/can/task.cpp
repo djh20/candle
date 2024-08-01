@@ -7,7 +7,7 @@ Task::Task(const char *id)
 
 bool Task::run()
 {
-  if (!enabled || running) return false;
+  if (!canRun()) return false;
 
   running = true;
   lastRunWasSuccessful = false;
@@ -19,12 +19,18 @@ bool Task::run()
   return true;
 }
 
+bool Task::canRun()
+{
+  return enabled && !running && millis() - lastFinishMillis >= cooldown;
+}
+
 void Task::stop()
 {
   if (!running) return;
 
   endAttempt(false);
   lastRunWasSuccessful = lastAttemptWasSuccessful;
+  lastFinishMillis = millis();
   running = false;
   
   if (onFinish) onFinish();
