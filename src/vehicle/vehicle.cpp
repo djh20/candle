@@ -64,6 +64,7 @@ void Vehicle::registerMetrics(std::initializer_list<Metric*> metrics)
 void Vehicle::registerTask(Task *task)
 {
   tasks[totalTasks++] = task;
+  task->setCallbacks(this);
   log_i("Registered task: [%s]", task->id);
 }
 
