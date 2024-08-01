@@ -15,12 +15,20 @@ void WirelessManager::loop()
 {
   uint32_t now = millis();
 
-  WirelessProtocol targetProtocol = WirelessProtocol::Bluetooth;
+  WirelessProtocol targetProtocol;
   Vehicle *vehicle = GlobalVehicleManager.getVehicle();
 
-  if (vehicle && vehicle->ignition->valid && !vehicle->ignition->getValue())
+  if (forcedProtocol != WirelessProtocol::None)
+  {
+    targetProtocol = forcedProtocol;
+  } 
+  else if (vehicle && vehicle->ignition->valid && !vehicle->ignition->getValue())
   {
     targetProtocol = WirelessProtocol::WiFi;
+  }
+  else 
+  {
+    targetProtocol = WirelessProtocol::Bluetooth;
   }
   
   if (currentProtocol != targetProtocol && now - lastSwitchMillis >= PROTOCOL_SWITCH_DELAY)
@@ -40,6 +48,11 @@ void WirelessManager::loop()
 
   GlobalBluetoothManager.loop();
   GlobalWiFiManager.loop();
+}
+
+void WirelessManager::setForcedProtocol(WirelessProtocol protocol)
+{
+  forcedProtocol = protocol;
 }
 
 void WirelessManager::updateProtocols()

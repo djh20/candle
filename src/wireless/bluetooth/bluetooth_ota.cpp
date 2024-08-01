@@ -2,6 +2,7 @@
 #include "bluetooth_manager.h"
 #include <BLEService.h>
 #include <BLE2902.h>
+#include <wireless/wireless_manager.h>
 
 #define STATUS_CODE_SUCCESS 0U
 #define STATUS_CODE_ERROR 1U
@@ -104,12 +105,15 @@ void BluetoothOTA::processCommand(uint8_t *data, size_t length)
       success = Update.setMD5(hashStr);
       if (success)
       {
+        // Keep bluetooth active.
+        GlobalWirelessManager.setForcedProtocol(WirelessProtocol::Bluetooth);
         sendResponse(STATUS_CODE_SUCCESS);
       }
       else
       {
         log_e("Failed to start OTA update - MD5 hash invalid");
         sendResponse(STATUS_CODE_ERROR);
+        Update.abort();
       }
     }
     else
