@@ -34,9 +34,11 @@ void VehicleNissanLeaf::begin()
     batteryTemp = new FloatMetric<1>(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
 
     ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
-    fanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
-    chargeStatus = new IntMetric<1>(domain, "chg_status", MetricType::Statistic),
-    remainingChargeTime = new IntMetric<1>(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
+    ccStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
+    ccFanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
+    // chargeStatus = new IntMetric<1>(domain, "chg_status", MetricType::Statistic),
+    chargeMode = new IntMetric<1>(domain, "chg_mode", MetricType::Statistic),
+    // remainingChargeTime = new IntMetric<1>(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
     turnSignal = new IntMetric<1>(domain, "turn_signal", MetricType::Statistic),
     headlights = new IntMetric<1>(domain, "headlights", MetricType::Statistic),
     parkBrake = new IntMetric<1>(domain, "park_brake", MetricType::Statistic),
@@ -70,14 +72,14 @@ void VehicleNissanLeaf::begin()
   bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsReqTask->configureResponse(0x7BB, 6);
   bmsReqTask->maxAttemptDuration = 500;
-  bmsReqTask->maxAttempts = 4;
+  bmsReqTask->maxAttempts = 10;
+  registerTask(bmsReqTask);
 
   bmsTask = new MultiTask("bms");
   bmsTask->add(0, keepAwakeTask, false);
   bmsTask->add(0, bmsReqTask);
   bmsTask->setEnabled(false);
   registerTask(bmsTask);
-  setTaskInterval(bmsTask, 200);
 
   uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargesTask = new PollTask(
@@ -87,7 +89,7 @@ void VehicleNissanLeaf::begin()
   slowChargesTask->maxAttemptDuration = 500;
   slowChargesTask->setEnabled(false);
   registerTask(slowChargesTask);
-  setTaskInterval(slowChargesTask, 300000);
+  setTaskInterval(slowChargesTask, 60000); // every minute
 
   uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
   fastChargesTask = new PollTask(
@@ -97,7 +99,7 @@ void VehicleNissanLeaf::begin()
   fastChargesTask->maxAttemptDuration = 500;
   fastChargesTask->setEnabled(false);
   registerTask(fastChargesTask);
-  setTaskInterval(fastChargesTask, 300000);
+  setTaskInterval(fastChargesTask, 60000); // every minute
 
   uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
@@ -130,6 +132,15 @@ void VehicleNissanLeaf::begin()
   ccOffTask->add(0, genericWakeTask);
   ccOffTask->add(1, ccOffReqTask);
   registerTask(ccOffTask);
+
+  uint8_t ccAutoOffReq[4] = {0x46, 0x08, 0x32, 0x00};
+  ccAutoOffTask = new PollTask(
+    "cc_auto_off", mainBus, 0x56E, ccAutoOffReq, sizeof(ccAutoOffReq)
+  );
+  ccAutoOffTask->maxAttemptDuration = 0;
+  ccAutoOffTask->setEnabled(false);
+  registerTask(ccAutoOffTask);
+  setTaskInterval(ccAutoOffTask, 500);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
@@ -198,16 +209,23 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       turnSignal->setValue((data[2] & 0x06) / 2);
       headlights->setValue((data[1] >> 7) == 1);
     }
-    else if (id == 0x54B) // Climate Control 1
+    // else if (id == 0x50A) // A/C Auto Amp
+    // {
+    //   ccStatus->setValue(data[4]);
+    // }
+    else if (id == 0x54B) // A/C Auto Amp
     {
-      fanSpeed->setValue(data[4] >> 3);
+      ccStatus->setValue((data[1] & 0xF7) > 0);
+      ccFanSpeed->setValue(data[4] >> 3);
     }
-    else if (id == 0x510) // Climate Control 2
+    else if (id == 0x510) // A/C Auto Amp
     { 
       if (data[7] != 0xff)
       {
         ambientTemp->setValue((data[7] / 2.0) - 40);
       }
+
+      chargeMode->setValue(data[1] & 0x07);
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
     {
@@ -233,6 +251,18 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
   }
 }
 
+void VehicleNissanLeaf::onTaskRun(Task *task)
+{
+  // if (task == ccOnTask)
+  // {
+  //   ccAutoOffTask->setEnabled(true);
+  // }
+  if (task == ccOffTask)
+  {
+    ccAutoOffTask->setEnabled(false);
+  }
+}
+
 void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsReqTask)
@@ -251,80 +281,123 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
 
     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
-    if (newSoc >= 0 && newSoc <= 100) {
-      if (newSoc >= soc->getValue()+5) endTrip(); // Detect if car has been charged.
-      soc->setValue(newSoc);
-    }
+    if (newSoc >= 0 && newSoc <= 100) soc->setValue(newSoc);
 
     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
     // Convert Ah to kWh
     batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
   }
-  // else if (task == quickChargesTask)
-  // {
-  //   quickCharges->setValue((frames[0][4] << 8) | frames[0][5]);
-  // }
-  // else if (task == slowChargesTask)
-  // {
-  //   slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
-  // }
+  else if (task == fastChargesTask)
+  {
+    fastCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+  }
+  else if (task == slowChargesTask)
+  {
+    slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+  }
 }
 
 void VehicleNissanLeaf::updateExtraMetrics()
 {
-  uint32_t now = millis();
+  // uint32_t now = millis();
   
   // Remaining Charge Time
-  if (now - remainingChargeTime->lastUpdateMillis >= 5000)
-  {
-    if (chargeStatus->getValue() == 1 && batteryPower->getValue() < 0) 
-    {
-      double percentUntilFull = MAX_SOC_PERCENT - soc->getValue();
+  // if (now - remainingChargeTime->lastUpdateMillis >= 5000)
+  // {
+  //   if (chargeStatus->getValue() == 1 && batteryPower->getValue() < 0) 
+  //   {
+  //     double percentUntilFull = MAX_SOC_PERCENT - soc->getValue();
 
-      double energyRequired = batteryCapacity->getValue() * (percentUntilFull/100.0);
-      double chargeTimeHours = (energyRequired / -batteryPower->getValue()) * 1.2;
+  //     double energyRequired = batteryCapacity->getValue() * (percentUntilFull/100.0);
+  //     double chargeTimeHours = (energyRequired / -batteryPower->getValue()) * 1.2;
 
-      remainingChargeTime->setValue(chargeTimeHours * 60);
-    }
-    else
-    {
-      remainingChargeTime->setValue(0);
-    }
-  }
+  //     remainingChargeTime->setValue(chargeTimeHours * 60);
+  //   }
+  //   else
+  //   {
+  //     remainingChargeTime->setValue(0);
+  //   }
+  // }
 }
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
-  if (metric == ignition)
+  if (metric == ignition || metric == chargeMode)
   {
-    // TODO: Enable BMS polling while charging.
-    bmsTask->setEnabled(ignition->getValue());
-    slowChargesTask->setEnabled(ignition->getValue());
-    fastChargesTask->setEnabled(ignition->getValue());
+    bool carOn = ignition->valid && ignition->getValue();
+    bool charging = chargeMode->valid && chargeMode->getValue();
+
+    setTaskInterval(bmsTask, carOn ? 200 : 120000);
+    bmsTask->setEnabled(carOn || charging);
+
+    slowChargesTask->setEnabled(carOn);
+    fastChargesTask->setEnabled(carOn);
+    
+    genericWakeTask->setEnabled(!carOn);
+    gatewayWakeTask->setEnabled(!carOn);
+    keepAwakeTask->setEnabled(!carOn);
+
+    if (charging)
+    {
+      endTrip();
+    }
+
+    if (carOn) 
+    {
+      ccAutoOffTask->setEnabled(false);
+    }
   }
   else if (metric == gear)
   {
     if (gear->getValue() > 0)
     {
       startTrip();
-      chargeStatus->setValue(0);
+      // chargeStatus->setValue(0);
     }
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
   {
     batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
   }
-  else if (metric == batteryPower)
+  // else if (metric == batteryPower)
+  // {
+  //   if (gear->getValue() == 0 && batteryPower->getValue() <= -1) {
+  //     chargeStatus->setValue(1);
+  //     endTrip();
+  //   }
+  //   else if (chargeStatus->getValue() == 1 && batteryPower->getValue() >= -0.5)
+  //   {
+  //     chargeStatus->setValue(2);
+  //   }
+  // }
+  else if (metric == ccStatus)
   {
-    if (gear->getValue() == 0 && batteryPower->getValue() <= -1) {
-      chargeStatus->setValue(1);
-      endTrip();
-    }
-    else if (chargeStatus->getValue() == 1 && batteryPower->getValue() >= -0.5)
+    if (!ccStatus->valid || ccStatus->getValue() == 0)
     {
-      chargeStatus->setValue(2);
+      ccAutoOffTask->setEnabled(false);
     }
   }
+}
+
+void VehicleNissanLeaf::runHomeTasks()
+{
+  if (modelYear->valid && modelYear->getValue() >= 2013)
+  {
+    if (soc->valid && tripDistance->valid) 
+    {
+      // TODO: We should probably check if the car was used recently in order to prevent
+      // the charge port from opening minutes or hours later due to late wifi detection.
+
+      // TODO: Make these thresholds configurable.
+      if (soc->getValue() <= 70 && tripDistance->getValue() >= 5)
+      {
+        log_i("Automatically opening charge port");
+        runTask(chargePortTask);
+      }
+    }
+  }
+
+  endTrip();
 }
 
 void VehicleNissanLeaf::startTrip()
@@ -340,8 +413,6 @@ void VehicleNissanLeaf::startTrip()
 
 void VehicleNissanLeaf::endTrip()
 {
-  if (!tripInProgress) return;
-
   tripInProgress = false;
   tripDistance->setValue(0);
   tripEfficiency->invalidate();

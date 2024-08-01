@@ -74,7 +74,7 @@ void Vehicle::setTaskInterval(Task *task, uint32_t interval)
   {
     if (task == tasks[i])
     {
-      log_i("Set interval of task [%s] to %u", task->id, interval);
+      log_i("Set interval of task [%s] to %u ms", task->id, interval);
       taskIntervals[i] = interval;
       return;
     }
@@ -130,6 +130,8 @@ bool Vehicle::isTaskInQueue(Task *task)
   return false;
 }
 
+void Vehicle::runHomeTasks() {}
+
 void Vehicle::handleTasks()
 {
   uint32_t now = millis();
@@ -139,9 +141,9 @@ void Vehicle::handleTasks()
     Task *task = tasks[i];
     uint32_t interval = taskIntervals[i];
 
-    if (interval != 0 && now - task->lastFinishMillis >= interval && !isTaskInQueue(task))
+    if (interval != 0 && (now - task->lastFinishMillis >= interval || task->yetToRun))
     {
-      runTask(task);
+      if (!isTaskInQueue(task)) runTask(task);
     }
   }
 
@@ -171,6 +173,7 @@ void Vehicle::handleTasks()
 }
 
 void Vehicle::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}
+void Vehicle::onTaskRun(Task *task) {}
 void Vehicle::onPollResponse(Task *task, uint8_t **frames) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}

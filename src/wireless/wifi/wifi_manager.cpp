@@ -1,6 +1,8 @@
 #include "wifi_manager.h"
 #include "wifi_web_server.h"
 #include "../../config.h"
+#include <vehicle/vehicle.h>
+#include <vehicle/vehicle_manager.h>
 
 #define SCAN_INTERVAL 300000 // 5 minutes
 
@@ -78,6 +80,9 @@ void WiFiManager::processScanResults(int16_t totalNetworksFound)
   if (bestNetwork != -1)
   {
     log_i("Best network: %i", bestNetwork+1);
+
+    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+    if (vehicle) vehicle->runHomeTasks();
 
     memset(ssid, 0, sizeof(ssid));
     strcpy(ssid, WiFi.SSID(bestNetwork).c_str());

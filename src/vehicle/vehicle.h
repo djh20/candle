@@ -21,6 +21,8 @@ class Vehicle: protected TaskCallbacks
     Task *getTask(const char *id);
     bool isTaskInQueue(Task *task);
 
+    virtual void runHomeTasks();
+
     IntMetric<1> *ignition;
 
     CanBus *buses[VEHICLE_MAX_BUSES];
@@ -44,7 +46,8 @@ class Vehicle: protected TaskCallbacks
     void handleBuses();
     void handleTasks();
     virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
-    virtual void onPollResponse(Task *task, uint8_t **frames);
+    virtual void onTaskRun(Task *task) override;
+    virtual void onPollResponse(Task *task, uint8_t **frames) override;
     virtual void updateExtraMetrics();
     virtual void metricUpdated(Metric *metric);
     virtual void testCycle();

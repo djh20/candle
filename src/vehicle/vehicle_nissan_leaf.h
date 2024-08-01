@@ -12,6 +12,8 @@ class VehicleNissanLeaf: public Vehicle
     
     void begin() override;
 
+    virtual void runHomeTasks();
+
     CanBus *mainBus;
 
     IntMetric<1> *modelYear;
@@ -28,9 +30,11 @@ class VehicleNissanLeaf: public Vehicle
     FloatMetric<1> *batteryCapacity;
     FloatMetric<1> *batteryTemp;
     FloatMetric<1> *ambientTemp;
-    IntMetric<1> *fanSpeed;
-    IntMetric<1> *chargeStatus;
-    IntMetric<1> *remainingChargeTime;
+    IntMetric<1> *ccStatus;
+    IntMetric<1> *ccFanSpeed;
+    // IntMetric<1> *chargeStatus;
+    IntMetric<1> *chargeMode;
+    // IntMetric<1> *remainingChargeTime;
     IntMetric<1> *turnSignal;
     IntMetric<1> *headlights;
     IntMetric<1> *parkBrake;
@@ -41,7 +45,8 @@ class VehicleNissanLeaf: public Vehicle
 
   protected:
     void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;
-    void onPollResponse(Task *task, uint8_t **frames);
+    void onTaskRun(Task *task) override;
+    void onPollResponse(Task *task, uint8_t **frames) override;
     void updateExtraMetrics() override;
     void metricUpdated(Metric *metric) override;
     void testCycle() override;
@@ -70,6 +75,7 @@ class VehicleNissanLeaf: public Vehicle
     // MultiTask *fullActivateCcTask;
 
     MultiTask *ccOffTask;
+    PollTask *ccAutoOffTask;
     // MultiTask *fullDeactivateCcTask;
 
     PollTask *slowChargesTask;
