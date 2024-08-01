@@ -41,7 +41,7 @@ class VehicleNissanLeaf: public Vehicle
 
   protected:
     void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;
-    void onPollResponse(PollTask *task, uint8_t **frames);
+    void onPollResponse(Task *task, uint8_t **frames);
     void updateExtraMetrics() override;
     void metricUpdated(Metric *metric) override;
     void testCycle() override;

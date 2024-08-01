@@ -9,7 +9,7 @@
 #define VEHICLE_MAX_BUSES 4
 #define VEHICLE_MAX_TASKS 16
 
-class Vehicle: public PollTaskCallbacks
+class Vehicle: protected TaskCallbacks
 {
   public:
     Vehicle(const char* domain);
@@ -27,7 +27,7 @@ class Vehicle: public PollTaskCallbacks
     uint8_t totalBuses = 0;
 
     Task *tasks[VEHICLE_MAX_TASKS];
-    TaskBehavior taskBehavior[VEHICLE_MAX_TASKS];
+    uint32_t taskIntervals[VEHICLE_MAX_TASKS] = {};
     uint8_t totalTasks = 0;
 
     Task *taskQueue[VEHICLE_MAX_TASKS];
@@ -37,7 +37,9 @@ class Vehicle: public PollTaskCallbacks
     void registerBus(CanBus *bus);
     void registerMetric(Metric *metric);
     void registerMetrics(std::initializer_list<Metric*> metrics);
-    void registerTask(Task *task, TaskBehavior behavior = TaskBehavior::Manual);
+    void registerTask(Task *task);
+    void setTaskInterval(Task *task, uint32_t interval);
+    void clearTaskInterval(Task *task);
 
     void handleBuses();
     void handleTasks();

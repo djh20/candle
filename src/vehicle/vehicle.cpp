@@ -61,11 +61,29 @@ void Vehicle::registerMetrics(std::initializer_list<Metric*> metrics)
   }
 }
 
-void Vehicle::registerTask(Task *task, TaskBehavior behavior)
+void Vehicle::registerTask(Task *task)
 {
-  tasks[totalTasks] = task;
-  taskBehavior[totalTasks++] = behavior;
+  tasks[totalTasks++] = task;
   log_i("Registered task: [%s]", task->id);
+}
+
+void Vehicle::setTaskInterval(Task *task, uint32_t interval)
+{
+  for (uint8_t i = 0; i < totalTasks; i++)
+  {
+    if (task == tasks[i])
+    {
+      log_i("Set interval of task [%s] to %u", task->id, interval);
+      taskIntervals[i] = interval;
+      return;
+    }
+  }
+  log_e("Failed to set interval of task [%s] (not found)", task->id);
+}
+
+void Vehicle::clearTaskInterval(Task *task)
+{
+  setTaskInterval(task, 0);
 }
 
 void Vehicle::handleBuses()
@@ -118,14 +136,11 @@ void Vehicle::handleTasks()
   for (uint8_t i = 0; i < totalTasks; i++)
   {
     Task *task = tasks[i];
-    TaskBehavior behavior = taskBehavior[i];
+    uint32_t interval = taskIntervals[i];
 
-    if (behavior == TaskBehavior::Periodic)
+    if (interval != 0 && now - task->lastFinishMillis >= interval && !isTaskInQueue(task))
     {
-      if (task->canRun() && !isTaskInQueue(task))
-      {
-        runTask(task);
-      }
+      runTask(task);
     }
   }
 

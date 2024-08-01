@@ -63,7 +63,7 @@ void VehicleNissanLeaf::begin()
   keepAwakeTask->add(0, genericWakeTask);
   keepAwakeTask->add(0, gatewayWakeTask);
   keepAwakeTask->minAttemptDuration = 50;
-  keepAwakeTask->repeat();
+  keepAwakeTask->mode = TaskMode::RepeatUntilStopped;
   
   // This task requests battery stats from the BMS/LBC.
   uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
@@ -71,13 +71,13 @@ void VehicleNissanLeaf::begin()
   bmsReqTask->configureResponse(0x7BB, 6);
   bmsReqTask->maxAttemptDuration = 500;
   bmsReqTask->maxAttempts = 4;
-  bmsReqTask->setCallbacks(this);
 
   bmsTask = new MultiTask("bms");
   bmsTask->add(0, keepAwakeTask, false);
   bmsTask->add(0, bmsReqTask);
-  bmsTask->enabled = false;
-  registerTask(bmsTask, TaskBehavior::Periodic);
+  bmsTask->setEnabled(false);
+  registerTask(bmsTask);
+  setTaskInterval(bmsTask, 200);
 
   uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargesTask = new PollTask(
@@ -85,10 +85,9 @@ void VehicleNissanLeaf::begin()
   );
   slowChargesTask->configureResponse(0x79A, 1);
   slowChargesTask->maxAttemptDuration = 500;
-  slowChargesTask->cooldown = 300000;
-  slowChargesTask->enabled = false;
-  slowChargesTask->setCallbacks(this);
-  registerTask(slowChargesTask, TaskBehavior::Periodic);
+  slowChargesTask->setEnabled(false);
+  registerTask(slowChargesTask);
+  setTaskInterval(slowChargesTask, 300000);
 
   uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
   fastChargesTask = new PollTask(
@@ -96,10 +95,9 @@ void VehicleNissanLeaf::begin()
   );
   fastChargesTask->configureResponse(0x79A, 1);
   fastChargesTask->maxAttemptDuration = 500;
-  fastChargesTask->cooldown = 300000;
-  fastChargesTask->enabled = false;
-  fastChargesTask->setCallbacks(this);
-  registerTask(fastChargesTask, TaskBehavior::Periodic);
+  fastChargesTask->setEnabled(false);
+  registerTask(fastChargesTask);
+  setTaskInterval(fastChargesTask, 300000);
 
   uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
@@ -235,7 +233,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
   }
 }
 
-void VehicleNissanLeaf::onPollResponse(PollTask *task, uint8_t **frames)
+void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsReqTask)
   {
@@ -300,12 +298,9 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   if (metric == ignition)
   {
     // TODO: Enable BMS polling while charging.
-    bmsTask->cooldown = 200;
-    bmsTask->enabled = ignition->getValue();
-    slowChargesTask->enabled = ignition->getValue();
-    fastChargesTask->enabled = ignition->getValue();
-    // slowChargesTask->setEnabled(ignition->value);
-    // quickChargesTask->setEnabled(ignition->value);
+    bmsTask->setEnabled(ignition->getValue());
+    slowChargesTask->setEnabled(ignition->getValue());
+    fastChargesTask->setEnabled(ignition->getValue());
   }
   else if (metric == gear)
   {

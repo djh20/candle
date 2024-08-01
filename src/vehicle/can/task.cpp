@@ -7,7 +7,7 @@ Task::Task(const char *id)
 
 bool Task::run()
 {
-  if (!canRun()) return false;
+  if (!enabled || running) return false;
 
   running = true;
   lastRunWasSuccessful = false;
@@ -17,23 +17,6 @@ bool Task::run()
   nextAttempt();
 
   return true;
-}
-
-bool Task::canRun()
-{
-  return enabled && !running && millis() - lastFinishMillis >= cooldown;
-}
-
-void Task::stop()
-{
-  if (!running) return;
-
-  endAttempt(false);
-  lastRunWasSuccessful = lastAttemptWasSuccessful;
-  lastFinishMillis = millis();
-  running = false;
-  
-  if (onFinish) onFinish();
 }
 
 void Task::tick() 
@@ -55,11 +38,21 @@ void Task::tick()
   if (attemptInProgress) process();
 }
 
-void Task::process() {}
-
-void Task::repeat()
+void Task::stop()
 {
-  this->minAttempts = 0xFFFF;
+  if (!running) return;
+
+  endAttempt(false);
+  lastRunWasSuccessful = lastAttemptWasSuccessful;
+  lastFinishMillis = millis();
+  running = false;
+  
+  if (onFinish) onFinish();
+}
+
+void Task::setEnabled(bool enabled)
+{
+  this->enabled = enabled;
 }
 
 bool Task::isRunning() const
@@ -71,8 +64,6 @@ bool Task::isSuccessful() const
 {
   return lastRunWasSuccessful;
 }
-
-void Task::initiateAttempt() {}
 
 void Task::endAttempt(bool success)
 {
@@ -92,7 +83,7 @@ void Task::nextAttempt()
     return;
   }
 
-  if (minAttempts != 0xFFFF) // Unlimited attempts
+  if (mode != TaskMode::RepeatUntilStopped)
   {
     attemptCount++;
   }
@@ -102,4 +93,9 @@ void Task::nextAttempt()
   attemptInProgress = true;
 
   initiateAttempt();
+}
+
+void Task::setCallbacks(TaskCallbacks *callbacks)
+{
+  this->callbacks = callbacks;
 }

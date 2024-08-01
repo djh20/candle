@@ -2,10 +2,12 @@
 
 #include <Arduino.h>
 
-enum class TaskBehavior
+class TaskCallbacks;
+
+enum class TaskMode
 {
-  Manual,
-  Periodic
+  Normal,
+  RepeatUntilStopped
 };
 
 class Task 
@@ -14,19 +16,19 @@ class Task
     Task(const char *id);
     
     bool run();
-    bool canRun();
-    
+    void tick();
     void stop();
 
-    void tick();
-
-    void repeat();
+    void setEnabled(bool enabled);
 
     bool isRunning() const;
     bool isSuccessful() const;
 
+    void setCallbacks(TaskCallbacks *callbacks);
+
     const char *id;
-    bool enabled = true;
+
+    TaskMode mode = TaskMode::Normal;
 
     uint32_t minAttemptDuration = 0;
     uint32_t maxAttemptDuration = 10000;
@@ -34,25 +36,31 @@ class Task
     uint16_t minAttempts = 1;
     uint16_t maxAttempts = 1;
 
-    uint32_t cooldown = 0;
-
     uint32_t lastAttemptMillis = 0;
     uint32_t lastFinishMillis = 0;
 
     std::function<void()> onFinish;
 
   protected:
-    virtual void initiateAttempt();
-    virtual void process();
+    virtual void initiateAttempt() = 0;
+    virtual void process() = 0;
     virtual void endAttempt(bool success);
 
+    bool enabled = true;
     bool running = false;
     bool attemptInProgress;
     bool lastAttemptWasSuccessful;
     bool lastRunWasSuccessful;
-
     uint16_t attemptCount;
+
+    TaskCallbacks *callbacks;
 
   private:
     void nextAttempt();
+};
+
+class TaskCallbacks
+{
+  public:
+    virtual void onPollResponse(Task *task, uint8_t **frames) = 0;
 };

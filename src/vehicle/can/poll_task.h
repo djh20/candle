@@ -4,8 +4,6 @@
 #include "can_bus.h"
 #include "task.h"
 
-class PollTaskCallbacks;
-
 class PollTask: public Task
 {
   public:
@@ -14,8 +12,6 @@ class PollTask: public Task
     ~PollTask();
     
     void configureResponse(uint32_t id, uint8_t totalFrames);
-    void setCallbacks(PollTaskCallbacks *callbacks);
-    // std::function<void(uint8_t**)> onResponse;
   
   protected:
     void initiateAttempt() override;
@@ -23,7 +19,6 @@ class PollTask: public Task
   
   private:
     CanBus *bus;
-    PollTaskCallbacks *callbacks;
 
     uint32_t reqId;
     uint8_t reqData[CAN_MAX_DLEN];
@@ -35,12 +30,4 @@ class PollTask: public Task
 
     uint8_t **resBuffer;
     uint8_t resBufferTracker = 0;
-};
-
-class PollTaskCallbacks
-{
-  protected:
-    virtual void onPollResponse(PollTask *task, uint8_t **frames) = 0;
-
-  friend class PollTask;
 };
