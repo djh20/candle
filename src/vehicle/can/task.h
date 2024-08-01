@@ -38,10 +38,11 @@ class Task
 
     uint32_t lastAttemptMillis = 0;
     uint32_t lastFinishMillis = 0;
-
-    std::function<void()> onFinish;
+    
+    bool yetToRun = true;
 
   protected:
+    virtual void preRun();
     virtual void initiateAttempt() = 0;
     virtual void process() = 0;
     virtual void endAttempt(bool success);
@@ -53,7 +54,7 @@ class Task
     bool lastRunWasSuccessful;
     uint16_t attemptCount;
 
-    TaskCallbacks *callbacks;
+    TaskCallbacks *callbacks = nullptr;
 
   private:
     void nextAttempt();
@@ -62,5 +63,6 @@ class Task
 class TaskCallbacks
 {
   public:
+    virtual void onTaskRun(Task *task) = 0;
     virtual void onPollResponse(Task *task, uint8_t **frames) = 0;
 };

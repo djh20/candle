@@ -14,6 +14,7 @@ class PollTask: public Task
     void configureResponse(uint32_t id, uint8_t totalFrames);
   
   protected:
+    void preRun() override;
     void initiateAttempt() override;
     void process() override;
   

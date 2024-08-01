@@ -23,17 +23,16 @@ PollTask::~PollTask()
   delete[] resBuffer;
 }
 
-void PollTask::initiateAttempt()
+void PollTask::preRun()
 {
-  // if (!bus->initialized) 
-  // {
-  //   endAttempt(false);
-  //   return;
-  // }
-  
+  // We only reset these values on each run so that received data is retained
+  // across attempts (useful for unreliable polling requests).
   currentResFrameCount = 0;
   resBufferTracker = 0;
+}
 
+void PollTask::initiateAttempt()
+{
   log_i(
     "Request: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
     reqId, reqData[0], reqData[1], reqData[2], reqData[3],

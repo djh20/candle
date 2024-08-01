@@ -14,6 +14,9 @@ bool Task::run()
   lastAttemptWasSuccessful = false;
   attemptCount = 0;
 
+  if (callbacks) callbacks->onTaskRun(this);
+
+  preRun();
   nextAttempt();
 
   return true;
@@ -46,12 +49,13 @@ void Task::stop()
   lastRunWasSuccessful = lastAttemptWasSuccessful;
   lastFinishMillis = millis();
   running = false;
-  
-  if (onFinish) onFinish();
+  yetToRun = false;
 }
 
 void Task::setEnabled(bool enabled)
 {
+  if (this->enabled == enabled) return;
+  if (enabled) yetToRun = true;
   this->enabled = enabled;
 }
 
@@ -99,3 +103,5 @@ void Task::setCallbacks(TaskCallbacks *callbacks)
 {
   this->callbacks = callbacks;
 }
+
+void Task::preRun() {}
