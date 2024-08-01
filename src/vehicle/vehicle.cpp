@@ -170,7 +170,7 @@ void Vehicle::handleTasks()
 }
 
 void Vehicle::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}
-void Vehicle::onPollResponse(PollTask *task, uint8_t **frames) {}
+void Vehicle::onPollResponse(Task *task, uint8_t **frames) {}
 void Vehicle::updateExtraMetrics() {}
 void Vehicle::metricUpdated(Metric *metric) {}
 void Vehicle::testCycle() {}
