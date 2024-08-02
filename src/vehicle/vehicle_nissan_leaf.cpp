@@ -345,7 +345,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
       endTrip();
     }
 
-    if (carOn) 
+    if (carOn && preheating) 
     {
       runTask(ccOffTask);
       preheating = false;
