@@ -1,6 +1,7 @@
 #include "wifi_web_server.h"
 #include "../../vehicle/vehicle_manager.h"
 #include "../../metric/metric_manager.h"
+#include <console.h>
 
 void WiFiWebServer::begin()
 {
@@ -48,6 +49,20 @@ void WiFiWebServer::begin()
     serializeJson(doc, *response);
     request->send(response);
     doc.clear();
+  });
+
+  server.on("/api/console", HTTP_POST, [this](AsyncWebServerRequest *request) 
+  {
+    if (request->hasParam("command"))
+    {
+      AsyncWebParameter *commandParam = request->getParam("command");
+      GlobalConsole.processString(commandParam->value().c_str());
+      request->send(200, "OK");
+    }
+    else
+    {
+      request->send(400, "ERROR: Missing parameter");
+    }
   });
 
   server.begin();

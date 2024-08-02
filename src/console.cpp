@@ -4,7 +4,7 @@
 
 void Console::processChar(const char c)
 {
-  if (c == '\n' || c == ';')
+  if (c == '\n' || c == '\0' || c == ';')
   {
     runCommand();
     waitingForNextArg = false;
@@ -36,7 +36,7 @@ void Console::processChar(const char c)
 
 void Console::processString(const char *str)
 {
-  size_t len = strlen(str);
+  size_t len = strlen(str)+1;
 
   for (uint8_t i = 0; i < len; i++)
   {
