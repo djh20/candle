@@ -88,8 +88,13 @@ void WiFiManager::processScanResults(int16_t totalNetworksFound)
     strcpy(ssid, WiFi.SSID(bestNetwork).c_str());
     memcpy(bssid, WiFi.BSSID(bestNetwork), sizeof(bssid));
 
-    log_i("Connecting to %s...", ssid);
-    WiFi.begin(ssid, getNetworkPassword(ssid), 0, bssid);
+    const char *password = getNetworkPassword(ssid);
+
+    if (strlen(password) > 0)
+    {
+      log_i("Connecting to %s...", ssid);
+      WiFi.begin(ssid, getNetworkPassword(ssid), 0, bssid);
+    }
   }
 
   WiFi.scanDelete();
