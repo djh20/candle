@@ -81,8 +81,11 @@ void WiFiManager::processScanResults(int16_t totalNetworksFound)
   {
     log_i("Best network: %i", bestNetwork+1);
 
-    Vehicle *vehicle = GlobalVehicleManager.getVehicle();
-    if (vehicle) vehicle->runHomeTasks();
+    if (bestNetworkRssi > -80)
+    {
+      Vehicle *vehicle = GlobalVehicleManager.getVehicle();
+      if (vehicle) vehicle->runHomeTasks();
+    }
 
     memset(ssid, 0, sizeof(ssid));
     strcpy(ssid, WiFi.SSID(bestNetwork).c_str());
