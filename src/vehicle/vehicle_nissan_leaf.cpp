@@ -42,6 +42,7 @@ void VehicleNissanLeaf::begin()
     turnSignal = new IntMetric<1>(domain, "turn_signal", MetricType::Statistic),
     headlights = new IntMetric<1>(domain, "headlights", MetricType::Statistic),
     parkBrake = new IntMetric<1>(domain, "park_brake", MetricType::Statistic),
+    locked = new IntMetric<1>(domain, "locked", MetricType::Statistic),
 
     slowCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
     fastCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
@@ -73,7 +74,6 @@ void VehicleNissanLeaf::begin()
   bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
   bmsReqTask->configureResponse(0x7BB, 6);
   bmsReqTask->maxAttemptDuration = 500;
-  bmsReqTask->maxAttempts = 10;
   registerTask(bmsReqTask);
 
   bmsTask = new MultiTask("bms");
@@ -134,14 +134,14 @@ void VehicleNissanLeaf::begin()
   ccOffTask->add(1, ccOffReqTask);
   registerTask(ccOffTask);
 
-  uint8_t ccAutoOffReq[4] = {0x46, 0x08, 0x32, 0x00};
-  ccAutoOffTask = new PollTask(
-    "cc_auto_off", mainBus, 0x56E, ccAutoOffReq, sizeof(ccAutoOffReq)
-  );
-  ccAutoOffTask->maxAttemptDuration = 0;
-  ccAutoOffTask->setEnabled(false);
-  registerTask(ccAutoOffTask);
-  setTaskInterval(ccAutoOffTask, 500);
+  // uint8_t ccAutoOffReq[4] = {0x46, 0x08, 0x32, 0x00};
+  // ccAutoOffTask = new PollTask(
+  //   "cc_auto_off", mainBus, 0x56E, ccAutoOffReq, sizeof(ccAutoOffReq)
+  // );
+  // ccAutoOffTask->maxAttemptDuration = 0;
+  // ccAutoOffTask->setEnabled(false);
+  // registerTask(ccAutoOffTask);
+  // setTaskInterval(ccAutoOffTask, 500);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
@@ -158,6 +158,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     else if (id == 0x60D) // BCM (Body Control Module)
     {
       ignition->setValue(((data[1] >> 1) & 0x03) >= 2);
+      locked->setValue((data[2] & 0x08) > 0);
     }
     else if (id == 0x421) // Instrument Panel Shifter
     {
@@ -258,10 +259,10 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
   // {
   //   ccAutoOffTask->setEnabled(true);
   // }
-  if (task == ccOffTask)
-  {
-    ccAutoOffTask->setEnabled(false);
-  }
+  // if (task == ccOffTask)
+  // {
+  //   ccAutoOffTask->setEnabled(false);
+  // }
 }
 
 void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
@@ -329,6 +330,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     bool charging = chargeMode->valid && chargeMode->getValue();
 
     setTaskInterval(bmsTask, carOn ? 200 : 120000);
+    bmsReqTask->maxAttempts = carOn ? 3 : 10;
     bmsTask->setEnabled(carOn || charging);
 
     slowChargesTask->setEnabled(carOn);
@@ -343,10 +345,10 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
       endTrip();
     }
 
-    if (carOn) 
-    {
-      ccAutoOffTask->setEnabled(false);
-    }
+    // if (carOn) 
+    // {
+    //   ccAutoOffTask->setEnabled(false);
+    // }
   }
   else if (metric == gear)
   {
@@ -371,26 +373,26 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   //     chargeStatus->setValue(2);
   //   }
   // }
-  else if (metric == ccStatus)
-  {
-    if (!ccStatus->valid || ccStatus->getValue() == 0)
-    {
-      ccAutoOffTask->setEnabled(false);
-    }
-  }
+  // else if (metric == ccStatus)
+  // {
+  //   if (!ccStatus->valid || ccStatus->getValue() == 0)
+  //   {
+  //     ccAutoOffTask->setEnabled(false);
+  //   }
+  // }
 }
 
 void VehicleNissanLeaf::runHomeTasks()
 {
   if (modelYear->valid && modelYear->getValue() >= 2013)
   {
-    if (soc->valid && tripDistance->valid) 
+    if (soc->valid && tripDistance->valid && locked->valid)
     {
       // TODO: We should probably check if the car was used recently in order to prevent
       // the charge port from opening minutes or hours later due to late wifi detection.
 
       // TODO: Make these thresholds configurable.
-      if (soc->getValue() <= 70 && tripDistance->getValue() >= 5)
+      if (soc->getValue() < 70 && tripDistance->getValue() >= 5 && !locked->getValue())
       {
         log_i("Automatically opening charge port");
         runTask(chargePortTask);

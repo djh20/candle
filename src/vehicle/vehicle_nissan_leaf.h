@@ -38,6 +38,7 @@ class VehicleNissanLeaf: public Vehicle
     IntMetric<1> *turnSignal;
     IntMetric<1> *headlights;
     IntMetric<1> *parkBrake;
+    IntMetric<1> *locked;
     IntMetric<1> *slowCharges;
     IntMetric<1> *fastCharges;
     IntMetric<1> *odometer;
