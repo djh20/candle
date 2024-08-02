@@ -11,8 +11,13 @@ class WiFiWebServer
     void end();
 
   private:
+    static void onVersionRequest(AsyncWebServerRequest *request);
+    static void onMetricsRequest(AsyncWebServerRequest *request);
+    static void onConsoleRequest(AsyncWebServerRequest *request);
+    static void onTaskRequest(AsyncWebServerRequest *request);
+
     AsyncWebServer server = AsyncWebServer(80);
-    JsonDocument doc;
+    static JsonDocument doc;
 };
 
 extern WiFiWebServer GlobalWiFiWebServer;
