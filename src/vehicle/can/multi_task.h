@@ -15,7 +15,7 @@ class MultiTask: public Task
   protected:
     void initiateAttempt() override;
     void process() override;
-    void endAttempt(bool success);
+    void endAttempt(bool success) override;
 
   private:
     void runTasksForCurrentStage();

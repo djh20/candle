@@ -28,7 +28,7 @@ void Task::tick()
 
   uint32_t now = millis();
 
-  if (attemptInProgress && now - lastAttemptMillis >= maxAttemptDuration)
+  if (attemptInProgress && (!enabled || now - lastAttemptMillis >= maxAttemptDuration))
   {
     endAttempt(false);
   }
