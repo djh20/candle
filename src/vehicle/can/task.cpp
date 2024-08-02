@@ -57,6 +57,8 @@ void Task::setEnabled(bool enabled)
   if (this->enabled == enabled) return;
   if (enabled) yetToRun = true;
   this->enabled = enabled;
+
+  log_i("Task [%s] is now %s", id, enabled ? "enabled" : "disabled");
 }
 
 bool Task::isRunning() const

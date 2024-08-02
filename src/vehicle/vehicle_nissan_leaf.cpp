@@ -116,7 +116,7 @@ void VehicleNissanLeaf::begin()
 
   uint8_t ccOnReq[4] = {0x4E, 0x08, 0x12, 0x00};
   PollTask *ccOnReqTask = new PollTask("cc_on_req", mainBus, 0x56E, ccOnReq, sizeof(ccOnReq));
-  ccOnReqTask->minAttempts = 20;
+  ccOnReqTask->minAttempts = 10;
   ccOnReqTask->minAttemptDuration = 100;
 
   ccOnTask = new MultiTask("cc_on");
@@ -126,7 +126,7 @@ void VehicleNissanLeaf::begin()
 
   uint8_t ccOffReq[4] = {0x56, 0x00, 0x01, 0x00};
   PollTask *ccOffReqTask = new PollTask("cc_off_req", mainBus, 0x56E, ccOffReq, sizeof(ccOffReq));
-  ccOffReqTask->minAttempts = 20;
+  ccOffReqTask->minAttempts = 10;
   ccOffReqTask->minAttemptDuration = 100;
 
   ccOffTask = new MultiTask("cc_off");
@@ -142,6 +142,9 @@ void VehicleNissanLeaf::begin()
   // ccAutoOffTask->setEnabled(false);
   // registerTask(ccAutoOffTask);
   // setTaskInterval(ccAutoOffTask, 500);
+
+  // Trigger an update event to handle the loaded model year value.
+  metricUpdated(modelYear);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
@@ -186,7 +189,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       uint16_t gids = ((data[4] & 0x01) << 8) | data[5];
       
       // Gids shows as high value on startup - this is incorrect, so we ignore it.
-      if (gids < 500) 
+      if (gids < 500)
       {
         // Range
         double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
@@ -197,7 +200,9 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       //uint32_t rawBatteryTemp = (data[0] / 2);
       //batteryTemp->setValue((data[0] / 2.0), true);
       //batteryTemp->setValue((data[0] * 0.25) - 10, true);
-      soh->setValue(data[1] >> 1);
+      
+      int32_t health = data[1] >> 1;
+      if (health > 0) soh->setValue(health);
     }
     else if (id == 0x284) // ABS Module
     {
@@ -250,18 +255,6 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         tripEfficiency->setValue(range->getValue() - idealRemainingRange);
       }
     }
-  }
-}
-
-void VehicleNissanLeaf::onTaskRun(Task *task)
-{
-  if (task == ccOnTask)
-  {
-    preheating = true;
-  }
-  else if (task == ccOffTask)
-  {
-    preheating = false;
   }
 }
 
@@ -324,14 +317,23 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
-  if (metric == ignition || metric == chargeMode)
+  // Individual Metrics
+  if (metric == modelYear)
+  {
+    bool hasChargePortActuator = modelYear->valid && modelYear->getValue() >= 2013;
+    chargePortTask->setEnabled(hasChargePortActuator);
+
+    // Remote climate only works on leafs with the new TCU on CAR-CAN.
+    bool supportsRemoteCc = modelYear->valid && modelYear->getValue() >= 2016;
+    ccOnTask->setEnabled(supportsRemoteCc);
+    ccOffTask->setEnabled(supportsRemoteCc);
+  }
+  else if (metric == ignition)
   {
     bool carOn = ignition->valid && ignition->getValue();
-    bool charging = chargeMode->valid && chargeMode->getValue();
 
     setTaskInterval(bmsTask, carOn ? 200 : 120000);
     bmsReqTask->maxAttempts = carOn ? 3 : 10;
-    bmsTask->setEnabled(carOn || charging);
 
     slowChargesTask->setEnabled(carOn);
     fastChargesTask->setEnabled(carOn);
@@ -340,65 +342,40 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     gatewayWakeTask->setEnabled(!carOn);
     keepAwakeTask->setEnabled(!carOn);
 
-    if (charging)
-    {
-      endTrip();
-    }
-
-    if (carOn && preheating) 
-    {
-      runTask(ccOffTask);
-      preheating = false;
-    }
+    if (carOn) runTask(ccOffTask);
   }
   else if (metric == gear)
   {
-    if (gear->getValue() > 0)
-    {
-      startTrip();
-      // chargeStatus->setValue(0);
-    }
+    bool notInPark = gear->getValue() > 0;
+    if (notInPark) startTrip();
+  }
+  else if (metric == chargeMode)
+  {
+    bool charging = chargeMode->valid && chargeMode->getValue();
+    if (charging) endTrip();
+  }
+
+  // Combined Metrics
+  if (metric == ignition || metric == chargeMode || metric == ccStatus)
+  {
+    bool carOn = ignition->valid && ignition->getValue();
+    bool ccOn = ccStatus->valid && ccStatus->getValue();
+    bool charging = chargeMode->valid && chargeMode->getValue();
+
+    bmsTask->setEnabled(carOn || ccOn || charging);
   }
   else if (metric == batteryVoltage || metric == batteryCurrent)
   {
     batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
   }
-  // else if (metric == batteryPower)
-  // {
-  //   if (gear->getValue() == 0 && batteryPower->getValue() <= -1) {
-  //     chargeStatus->setValue(1);
-  //     endTrip();
-  //   }
-  //   else if (chargeStatus->getValue() == 1 && batteryPower->getValue() >= -0.5)
-  //   {
-  //     chargeStatus->setValue(2);
-  //   }
-  // }
-  // else if (metric == ccStatus)
-  // {
-  //   if (!ccStatus->valid || ccStatus->getValue() == 0)
-  //   {
-  //     ccAutoOffTask->setEnabled(false);
-  //   }
-  // }
 }
 
 void VehicleNissanLeaf::runHomeTasks()
 {
-  if (modelYear->valid && modelYear->getValue() >= 2013)
+  if (soc->getValue() < 70 && tripDistance->getValue() >= 5 && !locked->getValue())
   {
-    if (soc->valid && tripDistance->valid && locked->valid)
-    {
-      // TODO: We should probably check if the car was used recently in order to prevent
-      // the charge port from opening minutes or hours later due to late wifi detection.
-
-      // TODO: Make these thresholds configurable.
-      if (soc->getValue() < 70 && tripDistance->getValue() >= 5 && !locked->getValue())
-      {
-        log_i("Automatically opening charge port");
-        runTask(chargePortTask);
-      }
-    }
+    log_i("Automatically opening charge port");
+    runTask(chargePortTask);
   }
 
   endTrip();
