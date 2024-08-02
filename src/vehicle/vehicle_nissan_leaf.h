@@ -58,6 +58,7 @@ class VehicleNissanLeaf: public Vehicle
     void endTrip();
 
     bool tripInProgress = false;
+    bool preheating = false;
     uint32_t odometerAtLastCharge = 0;
     uint16_t rangeAtLastCharge = 0;
 

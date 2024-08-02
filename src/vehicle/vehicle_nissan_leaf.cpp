@@ -255,14 +255,14 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
 void VehicleNissanLeaf::onTaskRun(Task *task)
 {
-  // if (task == ccOnTask)
-  // {
-  //   ccAutoOffTask->setEnabled(true);
-  // }
-  // if (task == ccOffTask)
-  // {
-  //   ccAutoOffTask->setEnabled(false);
-  // }
+  if (task == ccOnTask)
+  {
+    preheating = true;
+  }
+  else if (task == ccOffTask)
+  {
+    preheating = false;
+  }
 }
 
 void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
@@ -345,10 +345,11 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
       endTrip();
     }
 
-    // if (carOn) 
-    // {
-    //   ccAutoOffTask->setEnabled(false);
-    // }
+    if (carOn) 
+    {
+      runTask(ccOffTask);
+      preheating = false;
+    }
   }
   else if (metric == gear)
   {
