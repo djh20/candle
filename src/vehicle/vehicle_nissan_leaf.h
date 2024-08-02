@@ -40,6 +40,7 @@ class VehicleNissanLeaf: public Vehicle
     IntMetric<1> *parkBrake;
     IntMetric<1> *slowCharges;
     IntMetric<1> *fastCharges;
+    IntMetric<1> *odometer;
     IntMetric<1> *tripDistance;
     IntMetric<1> *tripEfficiency;
 
@@ -56,7 +57,6 @@ class VehicleNissanLeaf: public Vehicle
     void endTrip();
 
     bool tripInProgress = false;
-    uint32_t odometer = 0;
     uint32_t odometerAtLastCharge = 0;
     uint16_t rangeAtLastCharge = 0;
 

@@ -46,6 +46,7 @@ void VehicleNissanLeaf::begin()
     slowCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
     fastCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
 
+    odometer = new IntMetric<1>(domain, "odometer", MetricType::Statistic, Unit::Kilometers),
     tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
     tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
   });
@@ -239,10 +240,10 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     else if (id == 0x5C5) // Parking Brake & Odometer
     {
       parkBrake->setValue((data[0] & 0x04) == 0x04);
-      odometer = (data[1] << 16) | (data[2] << 8) | data[3];
+      odometer->setValue((data[1] << 16) | (data[2] << 8) | data[3]);
       if (tripInProgress) 
       { 
-        tripDistance->setValue(odometer - odometerAtLastCharge);
+        tripDistance->setValue(odometer->getValue() - odometerAtLastCharge);
 
         int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->getValue();
         tripEfficiency->setValue(range->getValue() - idealRemainingRange);
@@ -408,7 +409,7 @@ void VehicleNissanLeaf::startTrip()
   tripDistance->setValue(0);
   tripEfficiency->setValue(0);
   rangeAtLastCharge = range->getValue();
-  odometerAtLastCharge = odometer;
+  odometerAtLastCharge = odometer->getValue();
 }
 
 void VehicleNissanLeaf::endTrip()
