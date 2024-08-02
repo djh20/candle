@@ -40,7 +40,6 @@ void Metric::begin()
     log_i("Loaded state of [%s] from NVS", id);
 
     valid = true;
-    markAsUpdated();
   }
   prefs.end();
 }
