@@ -73,10 +73,9 @@ class VehicleNissanLeaf: public Vehicle
     // MultiTask *fullChargePortTask;
 
     MultiTask *ccOnTask;
-    // MultiTask *fullActivateCcTask;
-
     MultiTask *ccOffTask;
-    PollTask *ccAutoOffTask;
+    PollTask *tcuIdleTask;
+    // PollTask *ccAutoOffTask;
     // MultiTask *fullDeactivateCcTask;
 
     PollTask *slowChargesTask;

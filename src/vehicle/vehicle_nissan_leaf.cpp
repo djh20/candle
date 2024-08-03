@@ -134,14 +134,12 @@ void VehicleNissanLeaf::begin()
   ccOffTask->add(1, ccOffReqTask);
   registerTask(ccOffTask);
 
-  // uint8_t ccAutoOffReq[4] = {0x46, 0x08, 0x32, 0x00};
-  // ccAutoOffTask = new PollTask(
-  //   "cc_auto_off", mainBus, 0x56E, ccAutoOffReq, sizeof(ccAutoOffReq)
-  // );
-  // ccAutoOffTask->maxAttemptDuration = 0;
-  // ccAutoOffTask->setEnabled(false);
-  // registerTask(ccAutoOffTask);
-  // setTaskInterval(ccAutoOffTask, 500);
+  uint8_t tcuIdleTaskReq[4] = {0x86};
+  tcuIdleTask = new PollTask(
+    "tcu_idle", mainBus, 0x56E, tcuIdleTaskReq, sizeof(tcuIdleTaskReq)
+  );
+  tcuIdleTask->maxAttemptDuration = 0;
+  registerTask(tcuIdleTask);
 
   // Trigger an update event to handle the loaded model year value.
   metricUpdated(modelYear);
@@ -327,6 +325,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     bool supportsRemoteCc = modelYear->valid && modelYear->getValue() >= 2016;
     ccOnTask->setEnabled(supportsRemoteCc);
     ccOffTask->setEnabled(supportsRemoteCc);
+    tcuIdleTask->setEnabled(supportsRemoteCc);
   }
   else if (metric == ignition)
   {
@@ -335,14 +334,14 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     setTaskInterval(bmsTask, carOn ? 200 : 120000);
     bmsReqTask->maxAttempts = carOn ? 3 : 10;
 
+    setTaskInterval(tcuIdleTask, carOn ? 1000 : 0);
+
     slowChargesTask->setEnabled(carOn);
     fastChargesTask->setEnabled(carOn);
     
     genericWakeTask->setEnabled(!carOn);
     gatewayWakeTask->setEnabled(!carOn);
     keepAwakeTask->setEnabled(!carOn);
-
-    if (carOn) runTask(ccOffTask);
   }
   else if (metric == gear)
   {
