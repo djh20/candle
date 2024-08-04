@@ -202,6 +202,33 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       int32_t health = data[1] >> 1;
       if (health > 0) soh->setValue(health);
     }
+    else if (id == 0x260) // Data for instrumentation cluster
+    {
+      if (modelYear->valid)
+      {
+        // The power range seems to vary depending on model year (tested on 2011 and 2017).
+        // I'm assuming that MY2013 and later all have the larger power range, but this
+        // needs further testing.
+        uint16_t rawPowerRange = (modelYear->getValue() >= 2013) ? 4000 : 800;
+
+        // Calculate raw power and make zero the midpoint (usage is positive, regen is negative).
+        int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - (rawPowerRange/2);
+        
+        // Normalize raw power to a value between -1 and 1 for scaling.
+        float power = rawPower / (rawPowerRange/2.0);
+      
+        if (power > 0)
+        {
+          power *= 90.0; // Max output
+        }
+        else if (power < 0)
+        {
+          power *= 50.0; // Max input
+        }
+        
+        batteryPower->setValue(power);
+      }
+    }
     else if (id == 0x284) // ABS Module
     {
       float frontRightSpeed = ((data[0] << 8) | data[1]) / 208.0;
@@ -209,15 +236,14 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
       speed->setValue((frontRightSpeed + frontLeftSpeed) / 2.0);
     }
-    else if (id == 0x358) // Indicators & Headlights
+    else if (id == 0x358) // Indicators (BCM)
     {
       turnSignal->setValue((data[2] & 0x06) / 2);
-      headlights->setValue((data[1] >> 7) == 1);
     }
-    // else if (id == 0x50A) // A/C Auto Amp
-    // {
-    //   ccStatus->setValue(data[4]);
-    // }
+    else if (id == 0x625) // Headlights (BCM)
+    {
+      headlights->setValue(data[1] != 0x00);
+    }
     else if (id == 0x54B) // A/C Auto Amp
     {
       ccStatus->setValue((data[1] & 0xF7) > 0);
@@ -331,7 +357,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   {
     bool carOn = ignition->valid && ignition->getValue();
 
-    setTaskInterval(bmsTask, carOn ? 200 : 120000);
+    setTaskInterval(bmsTask, carOn ? 5000 : 120000);
     bmsReqTask->maxAttempts = carOn ? 3 : 10;
 
     setTaskInterval(tcuIdleTask, carOn ? 1000 : 0);
@@ -363,10 +389,10 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 
     bmsTask->setEnabled(carOn || ccOn || charging);
   }
-  else if (metric == batteryVoltage || metric == batteryCurrent)
-  {
-    batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
-  }
+  // else if (metric == batteryVoltage || metric == batteryCurrent)
+  // {
+  //   batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
+  // }
 }
 
 void VehicleNissanLeaf::runHomeTasks()
