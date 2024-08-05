@@ -32,10 +32,12 @@ void VehicleNissanLeaf::begin()
     batteryPower = new FloatMetric<1>(domain, "hvb_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
     batteryCapacity = new FloatMetric<1>(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
     batteryTemp = new FloatMetric<1>(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    motorPower = new FloatMetric<1>(domain, "motor_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
 
     ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
     ccStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
     ccFanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
+    ccPower = new FloatMetric<1>(domain, "cc_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
     // chargeStatus = new IntMetric<1>(domain, "chg_status", MetricType::Statistic),
     chargeMode = new IntMetric<1>(domain, "chg_mode", MetricType::Statistic),
     // remainingChargeTime = new IntMetric<1>(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
@@ -209,24 +211,24 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         // The power range seems to vary depending on model year (tested on 2011 and 2017).
         // I'm assuming that MY2013 and later all have the larger power range, but this
         // needs further testing.
-        uint16_t rawPowerRange = (modelYear->getValue() >= 2013) ? 4000 : 800;
+        uint16_t regenRange = (modelYear->getValue() >= 2013) ? 2000 : 400;
+        uint16_t usageRange = regenRange * 2;
 
         // Calculate raw power and make zero the midpoint (usage is positive, regen is negative).
-        int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - (rawPowerRange/2);
+        int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - regenRange;
         
-        // Normalize raw power to a value between -1 and 1 for scaling.
-        float power = rawPower / (rawPowerRange/2.0);
+        float power = 0;
       
-        if (power > 0)
+        if (rawPower > 0)
         {
-          power *= 90.0; // Max output
+          power = (rawPower / (float)usageRange) * 90.0;
         }
-        else if (power < 0)
+        else if (rawPower < 0)
         {
-          power *= 50.0; // Max input
+          power = (rawPower / (float)regenRange) * 50.0;
         }
         
-        batteryPower->setValue(power);
+        motorPower->setValue(power);
       }
     }
     else if (id == 0x284) // ABS Module
@@ -256,6 +258,17 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         ambientTemp->setValue((data[7] / 2.0) - 40);
       }
 
+      uint8_t rawPower = (data[3] >> 1) & 0x3F;
+      float power = 0;
+
+      uint8_t bit = 0;
+      while (((rawPower >> bit) & 0x01) == 0x01)
+      {
+        power += 0.25;
+        bit++;
+      }
+
+      ccPower->setValue(power);
       chargeMode->setValue(data[1] & 0x07);
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
@@ -393,6 +406,10 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   // {
   //   batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
   // }
+  else if (metric == motorPower || metric == ccPower)
+  {
+    batteryPower->setValue(motorPower->getValue() + ccPower->getValue());
+  }
 }
 
 void VehicleNissanLeaf::runHomeTasks()

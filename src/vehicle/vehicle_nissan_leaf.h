@@ -29,9 +29,11 @@ class VehicleNissanLeaf: public Vehicle
     FloatMetric<1> *batteryPower;
     FloatMetric<1> *batteryCapacity;
     FloatMetric<1> *batteryTemp;
+    FloatMetric<1> *motorPower;
     FloatMetric<1> *ambientTemp;
     IntMetric<1> *ccStatus;
     IntMetric<1> *ccFanSpeed;
+    FloatMetric<1> *ccPower;
     // IntMetric<1> *chargeStatus;
     IntMetric<1> *chargeMode;
     // IntMetric<1> *remainingChargeTime;
