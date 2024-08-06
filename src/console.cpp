@@ -1,6 +1,7 @@
 #include "console.h"
 #include "vehicle/vehicle_manager.h"
 #include "metric/metric_manager.h"
+#include "vehicle/can/poll_task.h"
 
 void Console::processChar(const char c)
 {
@@ -159,7 +160,22 @@ void Console::runCommand()
 
       nextArg(arg);
 
-      if (strcmp(arg, "monitor") == 0)
+      if (strcmp(arg, "send") == 0)
+      {
+        nextArg(arg);
+
+        uint32_t frameId = strtoul(arg, nullptr, 0);
+        uint8_t frameData[CAN_MAX_DLEN];
+
+        for (uint8_t i = 0; i < sizeof(frameData); i++)
+        {
+          nextArg(arg);
+          frameData[i] = strtoul(arg, nullptr, 0);
+        }
+
+        bus->sendFrame(frameId, frameData, sizeof(frameData));
+      }
+      else if (strcmp(arg, "monitor") == 0)
       {
         nextArg(arg);
         uint16_t msgId = strtoul(arg, nullptr, 0);

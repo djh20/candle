@@ -7,7 +7,6 @@ PollTask::PollTask(
   this->reqId = reqId;
   this->reqDataLen = reqDataLen;
 
-  memset(this->reqData, 0, sizeof(this->reqData));
   memcpy(this->reqData, reqData, reqDataLen);
 }
 
@@ -33,12 +32,6 @@ void PollTask::preRun()
 
 void PollTask::initiateAttempt()
 {
-  log_i(
-    "Request: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
-    reqId, reqData[0], reqData[1], reqData[2], reqData[3],
-    reqData[4], reqData[5], reqData[6], reqData[7], reqDataLen
-  );
-
   bus->sendFrame(reqId, reqData, reqDataLen);
 
   if (expectedResFrameCount == 0)

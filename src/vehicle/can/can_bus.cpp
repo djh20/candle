@@ -74,13 +74,20 @@ bool CanBus::sendFrame(uint32_t id, uint8_t *data, uint8_t dlc)
   txFrame.can_dlc = dlc;
   memcpy(txFrame.data, data, dlc);
 
-  if (mcp->sendMessage(&txFrame) != MCP2515::ERROR_OK)
+  if (mcp->sendMessage(&txFrame) == MCP2515::ERROR_OK)
+  {
+    log_i(
+      "TX: %03X %02X %02X %02X %02X %02X %02X %02X %02X (%u)",
+      id, data[0], data[1], data[2], data[3],
+      data[4], data[5], data[6], data[7], dlc
+    );
+    return true;
+  }
+  else
   {
     log_w("Failed to verify transmission of CAN frame (id: %03X)", id);
     return false;
   }
-
-  return true;
 }
 
 void CanBus::setMonitoredMessageId(uint16_t id)

@@ -22,7 +22,7 @@ class PollTask: public Task
     CanBus *bus;
 
     uint32_t reqId;
-    uint8_t reqData[CAN_MAX_DLEN];
+    uint8_t reqData[CAN_MAX_DLEN] = {};
     uint8_t reqDataLen;
 
     uint32_t resId;
