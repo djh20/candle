@@ -33,8 +33,6 @@ void VehicleNissanLeaf::begin()
     batteryCapacity = new FloatMetric<1>(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
     batteryTemp = new FloatMetric<1>(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
     motorPower = new FloatMetric<1>(domain, "motor_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
-    minRawPower = new IntMetric<1>(domain, "min_raw_power", MetricType::Statistic),
-    maxRawPower = new IntMetric<1>(domain, "max_raw_power", MetricType::Statistic),
 
     ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
     ccStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
@@ -218,16 +216,6 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
         // Calculate raw power and make zero the midpoint (usage is positive, regen is negative).
         int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - regenRange;
-
-        if (rawPower < minRawPower->getValue() || !minRawPower->valid)
-        {
-          minRawPower->setValue(rawPower);
-        }
-
-        if (rawPower > maxRawPower->getValue() || !maxRawPower->valid)
-        {
-          maxRawPower->setValue(rawPower);
-        }
         
         float power = 0;
       
