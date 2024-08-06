@@ -41,9 +41,29 @@ void CanBus::readIncomingFrame()
         );
       }
 
-      addFrameToCapture(&frame);
-
       receivedFrame = true;
+
+      if (discoveryInProgress)
+      {
+        bool newMessageDiscovered = true;
+
+        for (uint8_t i = 0; i < totalDiscoveredMessages; i++)
+        {
+          if (discoveredMessages[i] == frame.can_id)
+          {
+            newMessageDiscovered = false;
+            break;
+          }
+        }
+
+        if (newMessageDiscovered)
+        {
+          discoveredMessages[totalDiscoveredMessages++] = frame.can_id;
+          log_i("Message discovered: [%03X]", frame.can_id);
+
+          if (totalDiscoveredMessages >= DISCOVERY_MESSAGE_LIMIT) stopDiscovery();
+        }
+      }
     }
   }
 }
@@ -54,16 +74,13 @@ bool CanBus::sendFrame(uint32_t id, uint8_t *data, uint8_t dlc)
   txFrame.can_dlc = dlc;
   memcpy(txFrame.data, data, dlc);
 
-  if (mcp->sendMessage(&txFrame) == MCP2515::ERROR_OK)
-  {
-    addFrameToCapture(&txFrame, true);
-    return true;
-  }
-  else
+  if (mcp->sendMessage(&txFrame) != MCP2515::ERROR_OK)
   {
     log_w("Failed to verify transmission of CAN frame (id: %03X)", id);
     return false;
   }
+
+  return true;
 }
 
 void CanBus::setMonitoredMessageId(uint16_t id)
@@ -71,34 +88,20 @@ void CanBus::setMonitoredMessageId(uint16_t id)
   monitoredMessageId = id;
 }
 
+void CanBus::startDiscovery()
+{
+  discoveryInProgress = true;
+  totalDiscoveredMessages = 0;
+  log_i("Discovery started");
+}
+
+void CanBus::stopDiscovery()
+{
+  discoveryInProgress = false;
+  log_i("Discovery stopped");
+}
+
 void CanBus::sendFlowControl(uint32_t id)
 {
   sendFrame(id, flowControlData, sizeof(flowControlData));
-}
-
-void CanBus::capture()
-{
-  memset(captureBuffer, 0, sizeof(captureBuffer));
-  captureBufferIndex = 0;
-  captureStartMillis = millis();
-  capturing = true;
-}
-
-void CanBus::addFrameToCapture(can_frame *frame, bool tx)
-{
-  if (!capturing) return;
-
-  uint16_t ms = millis() - captureStartMillis;
-  uint8_t *captureSubBuffer = captureBuffer[captureBufferIndex];
-  captureSubBuffer[0] = ms >> 8;
-  captureSubBuffer[1] = ms;
-  captureSubBuffer[2] = frame->can_id >> 8;
-  captureSubBuffer[3] = frame->can_id;
-  captureSubBuffer[4] = (frame->can_dlc << 1) | tx;
-  memcpy(captureSubBuffer+5, frame->data, frame->can_dlc);
-
-  if (++captureBufferIndex >= CAN_CAP_LEN)
-  {
-    capturing = false;
-  }
 }

@@ -147,7 +147,7 @@ void Console::runCommand()
       log_w("Failed to run task - no vehicle found");
     }
   }
-  else if (strcmp(arg, "monitor") == 0)
+  else if (strcmp(arg, "can") == 0)
   {
     Vehicle *vehicle = GlobalVehicleManager.getVehicle();
 
@@ -155,14 +155,35 @@ void Console::runCommand()
     {
       nextArg(arg);
       uint8_t busId = strtoul(arg, nullptr, 0);
+      CanBus *bus = vehicle->buses[busId];
 
       nextArg(arg);
-      uint16_t msgId = strtoul(arg, nullptr, 0);
-      
-      CanBus *bus = vehicle->buses[busId];
-      bus->setMonitoredMessageId(msgId);
 
-      log_i("Monitoring [%03X] on bus %u", msgId, busId);
+      if (strcmp(arg, "monitor") == 0)
+      {
+        nextArg(arg);
+        uint16_t msgId = strtoul(arg, nullptr, 0);
+        
+        bus->setMonitoredMessageId(msgId);
+
+        log_i("Monitoring [%03X] on bus %u", msgId, busId);
+      }
+      else if (strcmp(arg, "discover") == 0)
+      {
+        nextArg(arg);
+        if (strcmp(arg, "stop") == 0)
+        {
+          bus->stopDiscovery();
+        }
+        else
+        {
+          bus->startDiscovery();
+        }
+      }
+    }
+    else
+    {
+      log_w("Failed to run CAN command - no vehicle found");
     }
   }
   else if (strcmp(arg, "restart") == 0)
