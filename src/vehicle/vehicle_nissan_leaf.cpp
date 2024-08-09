@@ -394,13 +394,20 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
 
   // Combined Metrics
-  if (metric == ignition || metric == chargeMode || metric == ccStatus)
+  if (metric == ignition || metric == chargeMode || metric == ccStatus || metric == modelYear)
   {
     bool carOn = ignition->valid && ignition->getValue();
     bool ccOn = ccStatus->valid && ccStatus->getValue();
     bool charging = chargeMode->valid && chargeMode->getValue();
 
-    bmsTask->setEnabled(carOn || ccOn || charging);
+    // Newer leafs wake up the CAR-CAN when charging starts and finishes.
+    // This allows for passive charge status detection (no requests necessary).
+    // Note: This might only be MY2016 onwards - additional testing required.
+    bool passiveChargeDetection = modelYear->valid && modelYear->getValue() >= 2013;
+
+    // TODO: Figure out a way to detect charge status on MY2011-2012.
+
+    bmsTask->setEnabled(carOn || ccOn || (charging && passiveChargeDetection));
   }
   // else if (metric == batteryVoltage || metric == batteryCurrent)
   // {
