@@ -11,8 +11,11 @@ void WiFiManager::begin()
   WiFi.persistent(false);
   WiFi.setAutoReconnect(false);
   WiFi.setHostname(GlobalConfig.hostname->getValue());
+  WiFi.mode(WIFI_STA);
 
   WiFi.onEvent(onConnect, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+
+  GlobalWiFiWebServer.begin();
 }
 
 void WiFiManager::loop()
@@ -37,9 +40,8 @@ void WiFiManager::setEnabled(bool enabled)
 
   log_i("WiFi is now %s", enabled ? "enabled" : "disabled");
 
-  WiFi.mode(enabled ? WIFI_STA : WIFI_OFF);
-  enabled ? GlobalWiFiWebServer.begin() : GlobalWiFiWebServer.end();
-
+  if (!enabled) WiFi.disconnect();
+  
   lastScanMillis = millis() - SCAN_INTERVAL;
   this->enabled = enabled;
 }

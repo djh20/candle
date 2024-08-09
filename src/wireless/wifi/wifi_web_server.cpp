@@ -15,11 +15,6 @@ void WiFiWebServer::begin()
   server.begin();
 }
 
-void WiFiWebServer::end()
-{
-  server.end();
-}
-
 void WiFiWebServer::onVersionRequest(AsyncWebServerRequest *request)
 {
   AsyncResponseStream *response = request->beginResponseStream("application/json");
