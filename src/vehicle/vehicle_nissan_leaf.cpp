@@ -445,31 +445,47 @@ void VehicleNissanLeaf::endTrip()
 
 void VehicleNissanLeaf::testCycle()
 {
-  ignition->setValue(1);
-  gear->setValue(3);
-  soc->setValue(85.5);
-  range->setValue(104);
-  batteryTemp->setValue(43.5);
-  batteryCapacity->setValue(27);
-  soh->setValue(87.3);
-  tripDistance->setValue(55);
-  tripEfficiency->setValue(-5);
+  uint32_t now = millis();
 
-  parkBrake->setValue(!parkBrake->getValue());
-  headlights->setValue(!headlights->getValue());
+  if (now - ignition->lastUpdateMillis >= 20000)
+  {
+    ignition->setValue(!ignition->getValue());
+  }
 
-  float speedValue = speed->getValue();
-  speedValue += 5;
-  if (speedValue > 100) speedValue = 0;
-  speed->setValue(speedValue);
+  if (ignition->getValue())
+  {
+    gear->setValue((gear->getValue() + 1) % 4);
+    range->setValue((range->getValue() + 1) % 200);
 
-  float powerValue = batteryPower->getValue();
-  powerValue += 5;
-  if (powerValue > 80) powerValue = 0;
-  batteryPower->setValue(powerValue);
- 
-  float steeringValue = steeringAngle->getValue();
-  steeringValue += 0.2;
-  if (steeringValue > 1) steeringValue = -1;
-  steeringAngle->setValue(steeringValue);
+    soh->setValue(64);
+    chargeMode->setValue(0);
+    ccStatus->setValue(0);
+    locked->setValue(false);
+    batteryCapacity->setValue(22.45);
+    odometer->setValue(123456);
+
+    // batteryTemp->setValue(43.5);
+    // batteryCapacity->setValue(27);
+    // tripDistance->setValue(55);
+    // tripEfficiency->setValue(-5);
+
+    parkBrake->setValue(!parkBrake->getValue());
+    headlights->setValue(!headlights->getValue());
+
+    float socValue = soc->getValue() + 1.5;
+    if (socValue > 100) socValue = 0;
+    soc->setValue(socValue);
+
+    float speedValue = speed->getValue() + 1.5;
+    if (speedValue > 100) speedValue = 0;
+    speed->setValue(speedValue);
+
+    float powerValue = batteryPower->getValue() + 1.5;
+    if (powerValue > 80) powerValue = 0;
+    batteryPower->setValue(powerValue);
+  
+    float steeringValue = steeringAngle->getValue() + 0.2;
+    if (steeringValue > 1) steeringValue = -1;
+    steeringAngle->setValue(steeringValue);
+  }
 }
