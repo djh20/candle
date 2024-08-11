@@ -269,7 +269,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       }
 
       ccPower->setValue(((data[3] >> 1) & 0x3F) * 0.25);
-      auxPower->setValue(((data[4] >> 3) & 0x1F) * 0.25);
+      auxPower->setValue(((data[4] >> 3) & 0x1F) * 0.1);
       chargeMode->setValue(data[1] & 0x07);
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
