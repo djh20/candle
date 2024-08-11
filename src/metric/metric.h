@@ -4,8 +4,6 @@
 #include <Preferences.h>
 #include <ArduinoJson.h>
 
-#define METRIC_TYPE_ENUM_COUNT 2
-
 enum class MetricType
 {
   Parameter,

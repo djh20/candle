@@ -3,6 +3,7 @@
 void MetricManager::registerMetric(Metric *metric)
 {
   metrics[totalMetrics++] = metric;
+  maxMetricType = max(static_cast<uint8_t>(metric->type), maxMetricType);
   metric->begin();
   log_i("Registered metric: [%s]", metric->id);
 }

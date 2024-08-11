@@ -5,23 +5,6 @@
 #include <BLECharacteristic.h>
 #include <BLEDescriptor.h>
 
-// #define GROUPED_METRIC_DATA_LEN 64
-// #define GROUPED_METRIC_INFO_LEN 96
-// #define GROUPED_METRIC_INFO_LEN 256
-
-struct MetricGroupInfo
-{
-  uint8_t id = 0;
-  uint8_t metricType = 0;
-  uint8_t metricIndex = 0;
-  Metric *metric = nullptr;
-
-  uint8_t characteristicPos = 0;
-  uint8_t descriptorPos = 0;
-  uint8_t characteristicSize = 0;
-  uint8_t descriptorSize = 0;
-};
-
 class BluetoothMetrics
 {
   public:
@@ -29,14 +12,13 @@ class BluetoothMetrics
     void loop();
 
   private:
-    bool newGroup(MetricGroupInfo &groupInfo);
-    bool nextMetric(MetricGroupInfo &groupInfo);
-
+    uint8_t *groupAssignments;
+    uint8_t totalGroups = 0;
     BLECharacteristic *characteristics[8] = {nullptr};
     
     uint8_t attributeBuffer[BLE_OPTIMAL_ATTRIBUTE_SIZE];
     uint8_t attributeBufferSize = 0;
-    uint32_t lastUpdateMillis = 0;
+    uint32_t lastTransmissionMillis = 0;
 };
 
 extern BluetoothMetrics GlobalBluetoothMetrics;

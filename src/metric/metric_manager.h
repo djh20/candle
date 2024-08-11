@@ -6,13 +6,12 @@
 class MetricManager
 {
   public:
-    // void loop();
-
     void registerMetric(Metric *metric);
     Metric *getMetric(const char *id);
 
     Metric *metrics[64];
     uint8_t totalMetrics = 0;
+    uint8_t maxMetricType = 0;
   
   private:
     uint32_t lastSaveMillis = 0;

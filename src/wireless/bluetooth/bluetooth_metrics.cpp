@@ -8,54 +8,88 @@
 
 void BluetoothMetrics::begin()
 {
+  groupAssignments = new uint8_t[GlobalMetricManager.totalMetrics];
+
   // Create bluetooth service for metrics.
   BLEService *metricsService = GlobalBluetoothManager.getServer()->createService(
-    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_S_METRICS)
+    GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_S_METRICS), 30
   );
 
-  MetricGroupInfo groupInfo;
+  // The following code splits metrics into groups to optimize Bluetooth performance. 
+  // Additionally, it also ensures parameters and statistics are in separate groups. 
+  // This prevents frequent updates of statistics from causing unnecessary transmission 
+  // of parameters.
 
-  while (newGroup(groupInfo))
+  // Loop through all possible metric types.
+  for (uint8_t t = 0; t <= GlobalMetricManager.maxMetricType; t++)
   {
-    // Create characteristic for grouped metric data.
-    BLECharacteristic *characteristic = new BLECharacteristic(
-      GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_GROUPED_METRIC_DATA, groupInfo.id),
-      BLECharacteristic::PROPERTY_READ |
-      BLECharacteristic::PROPERTY_NOTIFY
-    );
-    characteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
-    metricsService->addCharacteristic(characteristic);
-    characteristics[groupInfo.id] = characteristic;
-
-    // Create descriptor for grouped metric info.
-    BLEDescriptor *descriptor = new BLEDescriptor(
-      GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_D_GROUPED_METRIC_INFO), 
-      sizeof(attributeBuffer)
-    );
-    descriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
-    characteristic->addDescriptor(descriptor);
-
-    BLEDescriptor *notifyDescriptor = new BLE2902();
-    notifyDescriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
-    characteristic->addDescriptor(notifyDescriptor);
-
-    attributeBufferSize = 0;
-
-    do 
+    for (uint8_t m = 0; m < GlobalMetricManager.totalMetrics;) 
     {
-      log_i(
-        "Assigned [%s] to group %u (c: %u, d: %u)", 
-        groupInfo.metric->id, groupInfo.id, groupInfo.characteristicSize, groupInfo.descriptorSize
-      );
+      uint16_t characteristicSize = 0, descriptorSize = 0;
+      attributeBufferSize = 0;
 
-      // 0xFF indicates redacted metric.
-      uint8_t dataIndex = groupInfo.metric->redacted ? 0xFF : groupInfo.characteristicPos;
+      // Inner loop to group metrics by type and check if they fit within the attribute buffer.
+      for (; m < GlobalMetricManager.totalMetrics; m++)
+      {
+        Metric *metric = GlobalMetricManager.metrics[m];
+        uint8_t metricType = static_cast<uint8_t>(metric->type);
 
-      groupInfo.metric->getDescriptorData(attributeBuffer, attributeBufferSize, dataIndex);
-    } 
-    while (nextMetric(groupInfo));
+        if (metricType != t) continue;
 
-    descriptor->setValue(attributeBuffer, attributeBufferSize);
+        // Calculate the new size of the characteristic if this metric is added.
+        uint16_t newCharacteristicSize = characteristicSize;
+        if (!metric->redacted) newCharacteristicSize += metric->getStateDataSize();
+
+        // Calculate the new size of the descriptor if this metric is added.
+        uint16_t newDescriptorSize = descriptorSize + metric->getDescriptorDataSize();
+        
+        // If adding this metric exceeds the max size, exit the loop to start a new group.
+        if (newCharacteristicSize > sizeof(attributeBuffer) || newDescriptorSize > sizeof(attributeBuffer))
+          break;
+
+        uint8_t dataIndex = metric->redacted ? 0xFF : characteristicSize;
+        metric->getDescriptorData(attributeBuffer, attributeBufferSize, dataIndex);
+
+        // Assign the current metric to the current group.
+        groupAssignments[m] = totalGroups;
+
+        // Update the characteristic and descriptor sizes with the new metric included.
+        characteristicSize = newCharacteristicSize;
+        descriptorSize = newDescriptorSize;
+
+        log_i(
+          "Assigned [%s] to group %u (c: %u, d: %u)", 
+          metric->id, totalGroups, characteristicSize, descriptorSize
+        );
+      }
+
+      // If any metrics were added to this group, create BLE characteristic and descriptor.
+      if (characteristicSize > 0 || descriptorSize > 0)
+      {
+        BLECharacteristic *characteristic = new BLECharacteristic(
+          GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_C_GROUPED_METRIC_DATA, totalGroups),
+          BLECharacteristic::PROPERTY_READ |
+          BLECharacteristic::PROPERTY_NOTIFY
+        );
+        characteristic->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
+        metricsService->addCharacteristic(characteristic);
+        characteristics[totalGroups] = characteristic;
+
+        BLEDescriptor *descriptor = new BLEDescriptor(
+          GlobalBluetoothManager.uuid(UUID_CUSTOM, BLE_D_GROUPED_METRIC_INFO), 
+          sizeof(attributeBuffer)
+        );
+        descriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
+        descriptor->setValue(attributeBuffer, attributeBufferSize);
+        characteristic->addDescriptor(descriptor);
+
+        BLEDescriptor *notifyDescriptor = new BLE2902();
+        notifyDescriptor->setAccessPermissions(GlobalBluetoothManager.getAccessPermissions());
+        characteristic->addDescriptor(notifyDescriptor);
+
+        totalGroups++;
+      }
+    }
   }
 
   metricsService->start();
@@ -65,117 +99,44 @@ void BluetoothMetrics::loop()
 {
   uint32_t now = millis();
   
-  if (now - lastUpdateMillis >= UPDATE_INTERVAL)
+  if (now - lastTransmissionMillis >= UPDATE_INTERVAL)
   {
-    MetricGroupInfo groupInfo;
-    
-    while (newGroup(groupInfo))
+    for (uint8_t g = 0; g < totalGroups; g++)
     {
-      bool shouldUpdate = false;
+      bool shouldTransmit = false;
       attributeBufferSize = 0;
 
-      do 
+      for (uint8_t m = 0; m < GlobalMetricManager.totalMetrics; m++)
       {
-        // Skip metrics with no characteristic data (most likely due to redacted metric).
-        if (groupInfo.characteristicPos == groupInfo.characteristicSize) continue;
+        // Skip metrics that are not assigned to the current group.
+        if (groupAssignments[m] != g) continue;
+        
+        Metric *metric = GlobalMetricManager.metrics[m];
 
-        groupInfo.metric->getStateData(attributeBuffer, attributeBufferSize);
-    
-        if (groupInfo.metric->lastUpdateMillis >= lastUpdateMillis) shouldUpdate = true;
-      } 
-      while (nextMetric(groupInfo));
-      
-      // Only update the characteristic if at least one of the metrics has changed.
-      if (shouldUpdate)
+        // Skip redacted metrics.
+        if (metric->redacted) continue;
+
+        // Retrieve the metric's state data and append it to the attribute buffer.
+        metric->getStateData(attributeBuffer, attributeBufferSize);
+        
+        // If the metric was updated since the last transmission, set the shouldTransmit flag.
+        if (metric->lastUpdateMillis >= lastTransmissionMillis)
+        {
+          shouldTransmit = true;
+        }
+      }
+
+      if (shouldTransmit)
       {
-        BLECharacteristic *characteristic = characteristics[groupInfo.id];
+        BLECharacteristic *characteristic = characteristics[g];
         characteristic->setValue(attributeBuffer, attributeBufferSize);
 
         if (GlobalBluetoothManager.isClientConnected()) characteristic->notify();
       }
     }
 
-    lastUpdateMillis = millis();
+    lastTransmissionMillis = now;
   }
-}
-
-/*
-  Splits metrics into groups to optimize Bluetooth performance, ensuring parameters 
-  and statistics are in separate groups. This prevents frequent updates of statistics 
-  from causing unnecessary data transmission of parameters.
-*/
-bool BluetoothMetrics::newGroup(MetricGroupInfo &groupInfo)
-{
-  while (true) 
-  {
-    // Only increment the ID if the current group has been used.
-    if (groupInfo.descriptorSize > 0) groupInfo.id++;
-
-    // Move to the next metric type after we've gone through all the metrics.
-    if (groupInfo.metricIndex >= GlobalMetricManager.totalMetrics-1)
-    {
-      groupInfo.metricType++;
-      groupInfo.metricIndex = 0;
-      groupInfo.metric = nullptr;
-    }
-
-    // Exit if all metric types have been processed.
-    if (groupInfo.metricType >= METRIC_TYPE_ENUM_COUNT) break;
-
-    // Reset descriptor and characteristic position & sizes.
-    groupInfo.descriptorPos = 0;
-    groupInfo.characteristicPos = 0;
-    groupInfo.descriptorSize = 0;
-    groupInfo.characteristicSize = 0;
-    
-    // Try to find the first metric for this group and return true if successful.
-    if (nextMetric(groupInfo)) return true;
-  }
-  return false;
-}
-
-/*
-  Finds and adds the next metric of the current type to the group, while ensuring 
-  the characteristic and descriptor sizes do not exceed Bluetooth limits.
-*/
-bool BluetoothMetrics::nextMetric(MetricGroupInfo &groupInfo)
-{
-  // Prepare for next metric if a metric is already assigned.
-  if (groupInfo.metric)
-  {
-    groupInfo.metricIndex++;
-    groupInfo.metric = nullptr;
-    groupInfo.characteristicPos = groupInfo.characteristicSize;
-    groupInfo.descriptorPos = groupInfo.descriptorSize;
-  }
-
-  // Iterate over the remaining metrics.
-  for (; groupInfo.metricIndex < GlobalMetricManager.totalMetrics; groupInfo.metricIndex++)
-  {
-    Metric *metric = GlobalMetricManager.metrics[groupInfo.metricIndex];
-    uint8_t metricType = static_cast<uint8_t>(metric->type);
-
-    // Skip metrics that do not match the current metric type.
-    if (metricType != groupInfo.metricType) continue;
-
-    // Calculate new sizes for characteristic and descriptor.
-    uint16_t newCharacteristicSize = groupInfo.characteristicSize;
-    if (!metric->redacted) newCharacteristicSize += metric->getStateDataSize();
-
-    uint16_t newDescriptorSize = groupInfo.descriptorSize + metric->getDescriptorDataSize();
-
-    // Check if the new sizes exceed the maximum attribute size.
-    if (newCharacteristicSize > sizeof(attributeBuffer) || newDescriptorSize > sizeof(attributeBuffer))
-      break;
-    
-    // Assign the metric to the group and update sizes.
-    groupInfo.metric = metric;
-    groupInfo.descriptorSize = newDescriptorSize;
-    groupInfo.characteristicSize = newCharacteristicSize;
-    return true;
-  }
-
-  return false;
 }
 
 BluetoothMetrics GlobalBluetoothMetrics;
