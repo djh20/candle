@@ -17,36 +17,39 @@ class VehicleNissanLeaf: public Vehicle
     CanBus *mainBus;
 
     IntMetric<1> *modelYear;
-    
+
+    FloatMetric<1> *speed;    
     IntMetric<1> *gear;
+    FloatMetric<1> *steeringAngle;
+    IntMetric<1> *odometer;
+    IntMetric<1> *tripDistance;
+    IntMetric<1> *tripEfficiency;
+
     FloatMetric<1> *soc;
     FloatMetric<1> *soh;
     IntMetric<1> *range;
-    FloatMetric<1> *speed;
-    FloatMetric<1> *steeringAngle;
     FloatMetric<1> *batteryVoltage;
-    FloatMetric<1> *batteryCurrent;
-    FloatMetric<1> *batteryPower;
     FloatMetric<1> *batteryCapacity;
     FloatMetric<1> *batteryTemp;
+
+    FloatMetric<1> *netPower;
     FloatMetric<1> *motorPower;
-    
-    FloatMetric<1> *ambientTemp;
+    FloatMetric<1> *ccPower;
+    FloatMetric<1> *auxPower;
+    FloatMetric<1> *chargePower;
+
     IntMetric<1> *ccStatus;
     IntMetric<1> *ccFanSpeed;
-    FloatMetric<1> *ccPower;
-    // IntMetric<1> *chargeStatus;
-    IntMetric<1> *chargeMode;
-    // IntMetric<1> *remainingChargeTime;
+    FloatMetric<1> *ambientTemp;
+
     IntMetric<1> *turnSignal;
     IntMetric<1> *headlights;
     IntMetric<1> *parkBrake;
     IntMetric<1> *locked;
-    IntMetric<1> *slowCharges;
-    IntMetric<1> *fastCharges;
-    IntMetric<1> *odometer;
-    IntMetric<1> *tripDistance;
-    IntMetric<1> *tripEfficiency;
+
+    IntMetric<1> *chargeMode;
+    IntMetric<1> *slowChargeCount;
+    IntMetric<1> *fastChargeCount;
 
   protected:
     void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;

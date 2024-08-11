@@ -18,40 +18,47 @@ void VehicleNissanLeaf::begin()
   registerBus(mainBus = new CanBus(CAN_CS_PIN, CAN_INT_PIN, CAN_500KBPS));
 
   registerMetrics({
+    /* Parameters */
     modelYear = new IntMetric<1>(domain, "model_year", MetricType::Parameter),
-
+    
+    /* Driving */
+    speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour),
     gear = new IntMetric<1>(domain, "gear", MetricType::Statistic),
-    soc = new FloatMetric<1>(domain, "soc", MetricType::Statistic, Unit::Percent, Precision::Medium),
-    soh = new FloatMetric<1>(domain, "soh", MetricType::Statistic, Unit::Percent, Precision::Medium),
-    range = new IntMetric<1>(domain, "range", MetricType::Statistic, Unit::Kilometers),
-    speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour, Precision::Medium),
     steeringAngle = new FloatMetric<1>(domain, "steering_angle", MetricType::Statistic, Unit::None, Precision::High),
+    odometer = new IntMetric<1>(domain, "odometer", MetricType::Statistic, Unit::Kilometers),
+    tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
+    tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers),
 
+    /* Battery */
+    soc = new FloatMetric<1>(domain, "soc", MetricType::Statistic, Unit::Percent),
+    soh = new FloatMetric<1>(domain, "soh", MetricType::Statistic, Unit::Percent),
+    range = new IntMetric<1>(domain, "range", MetricType::Statistic, Unit::Kilometers),
     batteryVoltage = new FloatMetric<1>(domain, "hvb_voltage", MetricType::Statistic, Unit::Volts, Precision::Low),
-    batteryCurrent = new FloatMetric<1>(domain, "hvb_current", MetricType::Statistic, Unit::Amps, Precision::Low),
-    batteryPower = new FloatMetric<1>(domain, "hvb_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
-    batteryCapacity = new FloatMetric<1>(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours, Precision::Medium),
+    batteryCapacity = new FloatMetric<1>(domain, "hvb_capacity", MetricType::Statistic, Unit::KilowattHours),
     batteryTemp = new FloatMetric<1>(domain, "hvb_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
-    motorPower = new FloatMetric<1>(domain, "motor_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
 
-    ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    /* Power */
+    netPower = new FloatMetric<1>(domain, "net_power", MetricType::Statistic, Unit::Kilowatts),
+    motorPower = new FloatMetric<1>(domain, "motor_power", MetricType::Statistic, Unit::Kilowatts),
+    ccPower = new FloatMetric<1>(domain, "cc_power", MetricType::Statistic, Unit::Kilowatts),
+    auxPower = new FloatMetric<1>(domain, "aux_power", MetricType::Statistic, Unit::Kilowatts),
+    chargePower = new FloatMetric<1>(domain, "chg_power", MetricType::Statistic, Unit::Kilowatts),
+
+    /* Climate Control */
     ccStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
     ccFanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
-    ccPower = new FloatMetric<1>(domain, "cc_power", MetricType::Statistic, Unit::Kilowatts, Precision::Medium),
-    // chargeStatus = new IntMetric<1>(domain, "chg_status", MetricType::Statistic),
-    chargeMode = new IntMetric<1>(domain, "chg_mode", MetricType::Statistic),
-    // remainingChargeTime = new IntMetric<1>(domain, "chg_time_remain", MetricType::Statistic, Unit::Minutes),
+    ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
+    
+    /* Vehicle Status */
     turnSignal = new IntMetric<1>(domain, "turn_signal", MetricType::Statistic),
     headlights = new IntMetric<1>(domain, "headlights", MetricType::Statistic),
     parkBrake = new IntMetric<1>(domain, "park_brake", MetricType::Statistic),
     locked = new IntMetric<1>(domain, "locked", MetricType::Statistic),
 
-    slowCharges = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
-    fastCharges = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
-
-    odometer = new IntMetric<1>(domain, "odometer", MetricType::Statistic, Unit::Kilometers),
-    tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
-    tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers)
+    /* Charging */
+    chargeMode = new IntMetric<1>(domain, "chg_mode", MetricType::Statistic),
+    slowChargeCount = new IntMetric<1>(domain, "chg_slow_count", MetricType::Statistic),
+    fastChargeCount = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
   });
   
   uint8_t emptyReq[8] = {};
@@ -208,27 +215,30 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     {
       if (modelYear->valid)
       {
-        // The power range seems to vary depending on model year (tested on 2011 and 2017).
-        // I'm assuming that MY2013 and later all have the larger power range, but this
-        // needs further testing.
-        uint16_t regenRange = (modelYear->getValue() >= 2013) ? 2000 : 400;
-        uint16_t usageRange = regenRange * 2;
+        // Here we use the instrument cluster 'power bubble' data to calculate motor power.
+        // The format of this message varies depending on model year (tested on MY2011 and MY2017).
+        // I'm assuming that MY2013 and later all have the new format, but this needs further testing.
 
-        // Calculate raw power and make zero the midpoint (usage is positive, regen is negative).
-        int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - regenRange;
-        
-        float power = 0;
-      
-        if (rawPower > 0)
+        bool newFormat = modelYear->getValue() >= 2013;
+        uint16_t offset = newFormat ? 2000 : 400; // Value at rest (0 kW)
+
+        // Get raw power and make zero the midpoint (usage is positive, regen is negative).
+        int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - offset;
+        float scalar = 0;
+
+        if (newFormat)
         {
-          power = (rawPower / (float)usageRange) * 90.0;
+          // Scalar of 0.05 (for usage) seems to roughly track battery power.
+          // Scalar of 0.0125 (for regen) seems to roughly track battery power.
+          scalar = (rawPower > 0) ? 0.05 : 0.0125;
         }
-        else if (rawPower < 0)
+        else
         {
-          power = (rawPower / (float)regenRange) * 50.0;
+          // Scalar of 0.125 seems to roughly track battery power.
+          scalar = 0.125;
         }
-        
-        motorPower->setValue(power);
+
+        motorPower->setValue(rawPower * scalar);
       }
     }
     else if (id == 0x284) // ABS Module
@@ -258,17 +268,8 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         ambientTemp->setValue((data[7] / 2.0) - 40);
       }
 
-      uint8_t rawPower = (data[3] >> 1) & 0x3F;
-      float power = 0;
-
-      uint8_t bit = 0;
-      while (((rawPower >> bit) & 0x01) == 0x01)
-      {
-        power += 0.25;
-        bit++;
-      }
-
-      ccPower->setValue(power);
+      ccPower->setValue(((data[3] >> 1) & 0x3F) * 0.25);
+      auxPower->setValue(((data[4] >> 3) & 0x1F) * 0.25);
       chargeMode->setValue(data[1] & 0x07);
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
@@ -299,33 +300,33 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsReqTask)
   {
-    int32_t rawCurrentOne = (frames[0][4] << 24) | (frames[0][5] << 16 | ((frames[0][6] << 8) | frames[0][7]));
-    if (rawCurrentOne & 0x8000000 == 0x8000000) {
-      rawCurrentOne = rawCurrentOne | -0x100000000;
-    }
-
-    int32_t rawCurrentTwo = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
-    if (rawCurrentTwo & 0x8000000 == 0x8000000) {
-      rawCurrentTwo = rawCurrentTwo | -0x100000000;
-    }
-
-    batteryCurrent->setValue(-(rawCurrentOne + rawCurrentTwo) / 2.0 / 1024.0);
-    batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
-
     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
     if (newSoc >= 0 && newSoc <= 100) soc->setValue(newSoc);
 
     uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
-    // Convert Ah to kWh
-    batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0);
+    batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0); // Convert Ah to kWh
+
+    batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
+
+    if (chargeMode->valid && chargeMode->getValue())
+    {
+      int32_t rawCurrent = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
+      if (rawCurrent & 0x8000000 == 0x8000000) 
+      {
+        rawCurrent = rawCurrent | -0x100000000;
+      }
+
+      float current = (rawCurrent > 0) ? (rawCurrent / 1024.0) : 0;
+      chargePower->setValue((batteryVoltage->getValue() * current) / 1000.0);
+    }
   }
   else if (task == fastChargesTask)
   {
-    fastCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+    fastChargeCount->setValue((frames[0][4] << 8) | frames[0][5]);
   }
   else if (task == slowChargesTask)
   {
-    slowCharges->setValue((frames[0][4] << 8) | frames[0][5]);
+    slowChargeCount->setValue((frames[0][4] << 8) | frames[0][5]);
   }
 }
 
@@ -354,7 +355,7 @@ void VehicleNissanLeaf::updateExtraMetrics()
 
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
-  // Individual Metrics
+  /* Individual Metrics */
   if (metric == modelYear)
   {
     bool hasChargePortActuator = modelYear->valid && modelYear->getValue() >= 2013;
@@ -390,10 +391,17 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   else if (metric == chargeMode)
   {
     bool charging = chargeMode->valid && chargeMode->getValue();
-    if (charging) endTrip();
+    if (charging)
+    {
+      endTrip();
+    }
+    else
+    {
+      chargePower->setValue(0.0);
+    }
   }
 
-  // Combined Metrics
+  /* Multiple Metrics */
   if (metric == ignition || metric == chargeMode || metric == ccStatus || metric == modelYear)
   {
     bool carOn = ignition->valid && ignition->getValue();
@@ -409,13 +417,9 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 
     bmsTask->setEnabled(carOn || ccOn || (charging && passiveChargeDetection));
   }
-  // else if (metric == batteryVoltage || metric == batteryCurrent)
-  // {
-  //   batteryPower->setValue((batteryVoltage->getValue() * batteryCurrent->getValue()) / 1000.0);
-  // }
-  else if (metric == motorPower || metric == ccPower)
+  else if (metric == motorPower || metric == ccPower || metric == auxPower)
   {
-    batteryPower->setValue(motorPower->getValue() + ccPower->getValue());
+    netPower->setValue(motorPower->getValue() + ccPower->getValue() + auxPower->getValue());
   }
 }
 
@@ -487,9 +491,9 @@ void VehicleNissanLeaf::testCycle()
     if (speedValue > 100) speedValue = 0;
     speed->setValue(speedValue);
 
-    float powerValue = batteryPower->getValue() + 1.5;
+    float powerValue = netPower->getValue() + 1.5;
     if (powerValue > 80) powerValue = 0;
-    batteryPower->setValue(powerValue);
+    netPower->setValue(powerValue);
   
     float steeringValue = steeringAngle->getValue() + 0.2;
     if (steeringValue > 1) steeringValue = -1;
