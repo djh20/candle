@@ -229,8 +229,8 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         if (newFormat)
         {
           // Scalar of 0.05 (for usage) seems to roughly track battery power.
-          // Scalar of 0.0125 (for regen) seems to roughly track battery power.
-          scalar = (rawPower > 0) ? 0.05 : 0.0125;
+          // Scalar of 0.015 (for regen) seems to roughly track battery power.
+          scalar = (rawPower > 0) ? 0.05 : 0.015;
         }
         else
         {
