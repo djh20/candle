@@ -28,6 +28,8 @@ void VehicleNissanLeaf::begin()
     odometer = new IntMetric<1>(domain, "odometer", MetricType::Statistic, Unit::Kilometers),
     tripDistance = new IntMetric<1>(domain, "trip_distance", MetricType::Statistic, Unit::Kilometers),
     tripEfficiency = new IntMetric<1>(domain, "trip_efficiency", MetricType::Statistic, Unit::Kilometers),
+    cruiseStatus = new IntMetric<1>(domain, "cruise_status", MetricType::Statistic),
+    cruiseSpeed = new IntMetric<1>(domain, "cruise_speed", MetricType::Statistic, Unit::KilometersPerHour),
 
     /* Battery */
     soc = new FloatMetric<1>(domain, "soc", MetricType::Statistic, Unit::Percent),
@@ -271,6 +273,35 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       ccPower->setValue(((data[3] >> 1) & 0x3F) * 0.25);
       auxPower->setValue(((data[4] >> 3) & 0x1F) * 0.1);
       chargeMode->setValue(data[1] & 0x07);
+    }
+    else if (id == 0x551) // Cruise Control
+    {
+      uint8_t status = (data[5] >> 4) & 0x07;
+      switch (status)
+      {
+        case 5: // Ready
+          status = 1;
+          break;
+
+        case 4: // Engaged
+          status = 2;
+          break;
+
+        default:
+          status = 0;
+      }
+      cruiseStatus->setValue(status);
+
+      uint8_t speed = data[4];
+      if (speed < 254)
+      {
+        speed *= 0.91; // Convert to real speed
+        cruiseSpeed->setValue(speed);
+      }
+      else
+      {
+        cruiseSpeed->invalidate();
+      }
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
     {

@@ -24,6 +24,8 @@ class VehicleNissanLeaf: public Vehicle
     IntMetric<1> *odometer;
     IntMetric<1> *tripDistance;
     IntMetric<1> *tripEfficiency;
+    IntMetric<1> *cruiseStatus;
+    IntMetric<1> *cruiseSpeed;
 
     FloatMetric<1> *soc;
     FloatMetric<1> *soh;
