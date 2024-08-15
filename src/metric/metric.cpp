@@ -74,6 +74,8 @@ void Metric::onUpdate(std::function<void()> handler)
 
 void Metric::invalidate()
 {
+  if (!valid) return;
+  
   valid = false;
   markAsUpdated();
 }
