@@ -260,7 +260,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     }
     else if (id == 0x54B) // A/C Auto Amp
     {
-      ccStatus->setValue((data[1] & 0xF7) > 0);
+      ccStatus->setValue((data[1] & 0x40) == 0x40);
       ccFanSpeed->setValue(data[4] >> 3);
     }
     else if (id == 0x510) // A/C Auto Amp
