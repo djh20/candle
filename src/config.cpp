@@ -2,11 +2,9 @@
 #include "metric/metric_manager.h"
 #include "wireless/bluetooth/bluetooth_manager.h"
 
-static const char *genericDomain = "mcu";
-
 void Config::begin()
 {
-  hostname = new StringMetric<1>(genericDomain, "hostname", MetricType::Parameter, 16);
+  hostname = new StringMetric<1>("mcu", "hostname", MetricType::Parameter, 16);
   GlobalMetricManager.registerMetric(hostname);
 
   if (!hostname->valid)
@@ -34,7 +32,7 @@ void Config::begin()
     hostname->save();
   }
 
-  vehicleId = new StringMetric<1>(genericDomain, "vehicle_id", MetricType::Parameter, 16);
+  vehicleId = new StringMetric<1>("mcu", "vehicle_id", MetricType::Parameter, 16);
   GlobalMetricManager.registerMetric(vehicleId);
 
   blePin = new IntMetric<1>("ble", "pin", MetricType::Parameter);
