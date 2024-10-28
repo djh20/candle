@@ -468,6 +468,7 @@ void VehicleNissanLeaf::runHomeTasks()
 void VehicleNissanLeaf::startTrip()
 {
   if (tripInProgress) return;
+  if (!range->valid || !odometer->valid) return;
 
   tripInProgress = true;
   tripDistance->setValue(0);
