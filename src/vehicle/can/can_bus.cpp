@@ -14,14 +14,18 @@ void CanBus::begin()
 
   mcp = new MCP2515(csPin);
 
-  // Abort function if MCP2515 fails to initialize.
-  if (mcp->reset() || mcp->setBitrate(bitrate, MCP_8MHZ) || mcp->setNormalMode()) return;
+  init();
+}
 
-  initialized = true;
+void CanBus::init() {
+  initialized = !(mcp->reset() || mcp->setBitrate(bitrate, MCP_8MHZ) || mcp->setNormalMode());
+  lastHeartbeat = millis();
 }
 
 void CanBus::readIncomingFrame()
 {
+  uint32_t now = millis();
+
   receivedFrame = false;
   
   if (!digitalRead(intPin)) // INT pin must be low
@@ -65,6 +69,15 @@ void CanBus::readIncomingFrame()
         }
       }
     }
+  }
+
+  if (receivedFrame) {
+    lastHeartbeat = now;
+    
+  } else if (now - lastHeartbeat >= 10000) {
+    // Re-initialize MCP2515 if no data received within 10 seconds.
+    // This is a makeshift solution to an issue where CAN data freezes occasionally.
+    init();
   }
 }
 

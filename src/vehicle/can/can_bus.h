@@ -10,6 +10,7 @@ class CanBus
     CanBus(uint8_t csPin, uint8_t intPin, CAN_SPEED bitrate);
 
     void begin();
+    void init();
     
     void readIncomingFrame();
     void sendFlowControl(uint32_t id);
@@ -38,6 +39,7 @@ class CanBus
 
   private:
     can_frame txFrame;
+    uint32_t lastHeartbeat = 0;
     uint8_t flowControlData[8] = {0x30, 0x00, 0x14}; // changed from 0x10 (16ms)
     uint16_t monitoredMessageId = 0xFFFE;
 };
