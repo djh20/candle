@@ -256,7 +256,13 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     }
     else if (id == 0x625) // Headlights (BCM)
     {
-      headlights->setValue(data[1] != 0x00);
+      // 2nd byte:
+      // 0x40 = parking lights on
+      // 0x60 = headlights on
+      // TODO: Add metric state for parking lights.
+      
+      // headlights->setValue(data[1] != 0x00);
+      headlights->setValue((data[1] & 0x20) != 0x00);
     }
     else if (id == 0x54B) // A/C Auto Amp
     {
