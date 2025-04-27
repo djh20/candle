@@ -9,6 +9,14 @@
 #define NOMINAL_PACK_VOLTAGE 360
 #define MAX_SOC_PERCENT 95
 
+#define FID_VCM_REQ 0x797
+#define FID_VCM_RES 0x79A
+
+#define FID_LBC_REQ 0x79B
+#define FID_LBC_RES 0x7BB
+
+#define FID_TCU 0x56E
+
 VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle("nl") {}
 
 void VehicleNissanLeaf::begin()
@@ -63,12 +71,12 @@ void VehicleNissanLeaf::begin()
     fastChargeCount = new IntMetric<1>(domain, "chg_fast_count", MetricType::Statistic),
   });
   
-  uint8_t emptyReq[8] = {};
+  static const uint8_t emptyReq[8] = {};
   genericWakeTask = new PollTask("generic_wake", mainBus, 0x682, emptyReq, 1);
 
   // This task spoofs the BCM wake up signal which causes some ECUs to come out of sleep 
   // mode and begin communicating.
-  uint8_t gatewayWakeReq[8] = {0x00, 0x03};
+  static const uint8_t gatewayWakeReq[8] = {0x00, 0x03};
   gatewayWakeTask = new PollTask(
     "gateway_wake", mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq)
   );
@@ -81,9 +89,9 @@ void VehicleNissanLeaf::begin()
   keepAwakeTask->mode = TaskMode::RepeatUntilStopped;
   
   // This task requests battery stats from the BMS/LBC.
-  uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
-  bmsReqTask = new PollTask("bms_req", mainBus, 0x79B, bmsReq, sizeof(bmsReq));
-  bmsReqTask->configureResponse(0x7BB, 6);
+  static const uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
+  bmsReqTask = new PollTask("bms_req", mainBus, FID_LBC_REQ, bmsReq, sizeof(bmsReq));
+  bmsReqTask->configureResponse(FID_LBC_RES, 6);
   bmsReqTask->maxAttemptDuration = 500;
   registerTask(bmsReqTask);
 
@@ -93,27 +101,27 @@ void VehicleNissanLeaf::begin()
   bmsTask->setEnabled(false);
   registerTask(bmsTask);
 
-  uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
+  static const uint8_t slowChargesReq[] = {0x03, 0x22, 0x12, 0x05};
   slowChargesTask = new PollTask(
-    "slow_charges", mainBus, 0x797, slowChargesReq, sizeof(slowChargesReq)
+    "slow_charges", mainBus, FID_VCM_REQ, slowChargesReq, sizeof(slowChargesReq)
   );
-  slowChargesTask->configureResponse(0x79A, 1);
+  slowChargesTask->configureResponse(FID_VCM_RES, 1);
   slowChargesTask->maxAttemptDuration = 500;
   slowChargesTask->setEnabled(false);
   registerTask(slowChargesTask);
   setTaskInterval(slowChargesTask, 60000); // every minute
 
-  uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
+  static const uint8_t fastChargesReq[] = {0x03, 0x22, 0x12, 0x03};
   fastChargesTask = new PollTask(
-    "fast_charges", mainBus, 0x797, fastChargesReq, sizeof(fastChargesReq)
+    "fast_charges", mainBus, FID_VCM_REQ, fastChargesReq, sizeof(fastChargesReq)
   );
-  fastChargesTask->configureResponse(0x79A, 1);
+  fastChargesTask->configureResponse(FID_VCM_RES, 1);
   fastChargesTask->maxAttemptDuration = 500;
   fastChargesTask->setEnabled(false);
   registerTask(fastChargesTask);
   setTaskInterval(fastChargesTask, 60000); // every minute
 
-  uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
+  static const uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
     "charge_port_req", mainBus, 0x35D, chargePortReq, sizeof(chargePortReq)
   );
@@ -125,8 +133,8 @@ void VehicleNissanLeaf::begin()
   chargePortTask->add(1, chargePortReqTask);
   registerTask(chargePortTask);
 
-  uint8_t ccOnReq[4] = {0x4E, 0x08, 0x12, 0x00};
-  PollTask *ccOnReqTask = new PollTask("cc_on_req", mainBus, 0x56E, ccOnReq, sizeof(ccOnReq));
+  static const uint8_t ccOnReq[] = {0x4E, 0x08, 0x12, 0x00};
+  PollTask *ccOnReqTask = new PollTask("cc_on_req", mainBus, FID_TCU, ccOnReq, sizeof(ccOnReq));
   ccOnReqTask->minAttempts = 10;
   ccOnReqTask->minAttemptDuration = 100;
 
@@ -135,8 +143,8 @@ void VehicleNissanLeaf::begin()
   ccOnTask->add(1, ccOnReqTask);
   registerTask(ccOnTask);
 
-  uint8_t ccOffReq[4] = {0x56, 0x00, 0x01, 0x00};
-  PollTask *ccOffReqTask = new PollTask("cc_off_req", mainBus, 0x56E, ccOffReq, sizeof(ccOffReq));
+  static const uint8_t ccOffReq[] = {0x56, 0x00, 0x01, 0x00};
+  PollTask *ccOffReqTask = new PollTask("cc_off_req", mainBus, FID_TCU, ccOffReq, sizeof(ccOffReq));
   ccOffReqTask->minAttempts = 10;
   ccOffReqTask->minAttemptDuration = 100;
 
@@ -145,9 +153,9 @@ void VehicleNissanLeaf::begin()
   ccOffTask->add(1, ccOffReqTask);
   registerTask(ccOffTask);
 
-  uint8_t tcuIdleTaskReq[4] = {0x86};
+  static const uint8_t tcuIdleTaskReq[4] = {0x86};
   tcuIdleTask = new PollTask(
-    "tcu_idle", mainBus, 0x56E, tcuIdleTaskReq, sizeof(tcuIdleTaskReq)
+    "tcu_idle", mainBus, FID_TCU, tcuIdleTaskReq, sizeof(tcuIdleTaskReq)
   );
   tcuIdleTask->maxAttemptDuration = 0;
   registerTask(tcuIdleTask);

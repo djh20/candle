@@ -46,13 +46,13 @@ void WiFiWebServer::onConsoleRequest(AsyncWebServerRequest *request)
 {
   if (request->hasParam("command"))
   {
-    AsyncWebParameter *commandParam = request->getParam("command");
-    GlobalConsole.processString(commandParam->value().c_str());
-    request->send(200, "OK");
+    const char* command = request->getParam("command")->value().c_str();
+    GlobalConsole.processString(command);
+    request->send(200, "text/plain", "OK");
   }
   else
   {
-    request->send(400, "ERROR: Missing parameter");
+    request->send(400, "text/plain", "ERROR: Missing command parameter");
   }
 }
 
@@ -60,12 +60,12 @@ void WiFiWebServer::onTaskRequest(AsyncWebServerRequest *request)
 {
   if (request->hasParam("id"))
   {
-    AsyncWebParameter *idParam = request->getParam("id");
+    const char* taskId = request->getParam("id")->value().c_str();
     Vehicle *vehicle = GlobalVehicleManager.getVehicle();
 
     if (vehicle)
     {
-      Task *task = vehicle->getTask(idParam->value().c_str());
+      Task *task = vehicle->getTask(taskId);
       if (task)
       {
         vehicle->runTask(task);
@@ -83,7 +83,7 @@ void WiFiWebServer::onTaskRequest(AsyncWebServerRequest *request)
   }
   else
   {
-    request->send(400, "text/plain", "ERROR: Missing parameter");
+    request->send(400, "text/plain", "ERROR: Missing id parameter");
   }
 }
 

@@ -82,7 +82,7 @@ void Console::runCommand()
       for (uint8_t i = 0; i < metric->elementCount; i++)
       {
         nextArg(arg);
-        metric->setValue(arg, i);
+        metric->setValueFromString(arg, i);
       }
 
       metric->save();
@@ -95,7 +95,7 @@ void Console::runCommand()
       uint8_t element = strtol(arg, nullptr, 0);
       
       nextArg(arg);
-      metric->setValue(arg, element);
+      metric->setValueFromString(arg, element);
 
       metric->save();
       metric->getState(arg); // Reuse command buffer

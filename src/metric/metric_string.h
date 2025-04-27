@@ -16,7 +16,7 @@ class StringMetric: public Metric
       state = new char[stateSize]();
     }
     
-    void setValue(const char *newValue, uint8_t elementIndex = 0) override
+    void setValueFromString(const char *newValue, uint8_t elementIndex = 0) override
     {
       char *currentValue = getValue(elementIndex);
 

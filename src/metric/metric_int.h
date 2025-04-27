@@ -9,7 +9,7 @@ class IntMetric: public Metric
     IntMetric(const char *domain, const char *localId, MetricType type, Unit unit = Unit::None)
       : Metric(domain, localId, type, MetricDataType::Int, unit, E) {}
 
-    void setValue(const char *newValue, uint8_t elementIndex = 0) override
+    void setValueFromString(const char *newValue, uint8_t elementIndex = 0) override
     {
       setValue(strtol(newValue, nullptr, 0), elementIndex);
     }

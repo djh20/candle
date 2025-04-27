@@ -1,7 +1,7 @@
 #include "poll_task.h"
 
 PollTask::PollTask(
-  const char *id, CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen
+  const char *id, CanBus *bus, uint32_t reqId, const uint8_t reqData[], uint8_t reqDataLen
 ) : Task(id) {
   this->bus = bus;
   this->reqId = reqId;

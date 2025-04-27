@@ -1,6 +1,7 @@
 #include "config.h"
 #include "metric/metric_manager.h"
 #include "wireless/bluetooth/bluetooth_manager.h"
+#include <esp_mac.h>
 
 void Config::begin()
 {
@@ -28,7 +29,7 @@ void Config::begin()
 
     log_i("Generated hostname: %s", generatedHostname);
 
-    hostname->setValue(generatedHostname);
+    hostname->setValueFromString(generatedHostname);
     hostname->save();
   }
 

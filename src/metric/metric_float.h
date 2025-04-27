@@ -14,7 +14,7 @@ class FloatMetric: public Metric
       this->precision = precision;
     }
 
-    void setValue(const char *newValue, uint8_t elementIndex = 0) override
+    void setValueFromString(const char *newValue, uint8_t elementIndex = 0) override
     {
       setValue(strtof(newValue, nullptr), elementIndex);
     }

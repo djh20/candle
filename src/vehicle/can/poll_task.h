@@ -7,8 +7,7 @@
 class PollTask: public Task
 {
   public:
-    // PollTask(CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen);
-    PollTask(const char *id, CanBus *bus, uint32_t reqId, uint8_t *reqData, uint8_t reqDataLen);
+    PollTask(const char *id, CanBus *bus, uint32_t reqId, const uint8_t reqData[], uint8_t reqDataLen);
     ~PollTask();
     
     void configureResponse(uint32_t id, uint8_t totalFrames);

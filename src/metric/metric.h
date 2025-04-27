@@ -58,7 +58,7 @@ class Metric
     void invalidate();
     void redact();
 
-    virtual void setValue(const char *newValue, uint8_t elementIndex = 0) = 0;
+    virtual void setValueFromString(const char *newValue, uint8_t elementIndex = 0) = 0;
     virtual void getValue(char *buffer, uint8_t elementIndex = 0) = 0;
 
     void getState(char *buffer);
