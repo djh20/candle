@@ -45,12 +45,12 @@ class Vehicle: protected TaskCallbacks
 
     void handleBuses();
     void handleTasks();
-    virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data);
-    virtual void onTaskRun(Task *task) override;
-    virtual void onPollResponse(Task *task, uint8_t **frames) override;
-    virtual void updateExtraMetrics();
-    virtual void metricUpdated(Metric *metric);
-    virtual void testCycle();
+    virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}
+    virtual void onTaskRun(Task *task) {}
+    virtual void onPollResponse(Task *task, uint8_t **frames) {}
+    virtual void updateExtraMetrics() {}
+    virtual void metricUpdated(Metric *metric) {}
+    virtual void testCycle() {}
 
     Task *currentTask = NULL;
     const char *domain;
