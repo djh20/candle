@@ -85,6 +85,6 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *slowChargesTask;
     PollTask *fastChargesTask;
 
-    bool remoteCcActive = false;
-    uint32_t remoteCcStartMillis;
+    bool preconActive = false;
+    uint32_t preconStartMillis;
 };

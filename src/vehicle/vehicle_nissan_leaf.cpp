@@ -8,7 +8,7 @@
 #define KM_PER_KWH 6.2
 #define NOMINAL_PACK_VOLTAGE 360
 #define MAX_SOC_PERCENT 95
-#define REMOTE_CC_AUTO_OFF_MS 30*60*1000
+#define PRECON_AUTO_OFF_MS 30*60*1000
 
 #define FID_VCM_REQ 0x797
 #define FID_VCM_RES 0x79A
@@ -163,6 +163,11 @@ void VehicleNissanLeaf::begin()
 
   // Trigger an update event to handle the loaded model year value.
   metricUpdated(modelYear);
+
+  // Halt cabin preconditioning to prevent potential battery drain.
+  // An ESP reboot would cause the system to lose track of the timer,
+  // potentially leaving preconditioning active for a very long time.
+  runTask(ccOffTask);
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
@@ -346,12 +351,12 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
 {
   if (task == ccOnTask) 
   {
-    remoteCcStartMillis = millis();
-    remoteCcActive = true;
+    preconStartMillis = millis();
+    preconActive = true;
   }
   else if (task == ccOffTask || task == tcuIdleTask)
   {
-    remoteCcActive = false;
+    preconActive = false;
   }
 }
 
@@ -391,12 +396,10 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 
 void VehicleNissanLeaf::updateExtraMetrics()
 {
-  uint32_t now = millis();
-
-  // Temporary solution to automatically turn off remotely-triggered climate control
-  if (remoteCcActive && now - remoteCcStartMillis > REMOTE_CC_AUTO_OFF_MS) {
+  // Temporary solution to automatically halt cabin preconditioning if left on for too long
+  if (preconActive && millis() - preconStartMillis > PRECON_AUTO_OFF_MS) {
     runTask(ccOffTask);
-    remoteCcActive = false;
+    preconActive = false;
   }
   
   // Remaining Charge Time
