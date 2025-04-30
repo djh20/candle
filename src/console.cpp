@@ -55,11 +55,11 @@ void Console::runCommand()
 
     if (strlen(arg) == 0)
     {
-      log_i("List of metrics:");
+      Serial.println("List of metrics:");
       for (uint8_t i = 0; i < GlobalMetricManager.totalMetrics; i++)
       {
         Metric *metric = GlobalMetricManager.metrics[i];
-        log_i("%s", metric->id);
+        Serial.println(metric->id);
       }
       return;
     }
@@ -67,11 +67,11 @@ void Console::runCommand()
     Metric *metric = GlobalMetricManager.getMetric(arg);
     if (metric)
     {
-      log_i("Found metric [%s]", metric->id);
+      Serial.printf("Found metric [%s]\r\n", metric->id);
     }
     else
     {
-      log_w("Failed to find metric [%s]", arg);
+      Serial.printf("Failed to find metric [%s]\r\n", arg);
       return;
     }
 
@@ -87,7 +87,7 @@ void Console::runCommand()
 
       metric->save();
       metric->getState(arg); // Reuse command buffer
-      log_i("Set [%s] to [%s]", metric->id, arg);
+      Serial.printf("Set [%s] to [%s]\r\n", metric->id, arg);
     }
     else if (strcmp(arg, "modify") == 0)
     {
@@ -99,19 +99,19 @@ void Console::runCommand()
 
       metric->save();
       metric->getState(arg); // Reuse command buffer
-      log_i("Set [%s] to [%s]", metric->id, arg);
+      Serial.printf("Set [%s] to [%s]\r\n", metric->id, arg);
     }
     else if (strcmp(arg, "invalidate") == 0)
     {
       metric->invalidate();
       metric->save();
-      log_i("The value of [%s] is no longer valid", metric->id);
+      Serial.printf("The value of [%s] is no longer valid\r\n", metric->id);
     }
     else if (strlen(arg) == 0)
     {
       metric->getState(arg); // Reuse command buffer
-      log_i("Current State: %s (%s)", arg, metric->valid ? "valid" : "invalid");
-      log_i("Last Updated: %u", metric->lastUpdateMillis);
+      Serial.printf("Current State: %s (%s)\r\n", arg, metric->valid ? "valid" : "invalid");
+      Serial.printf("Last Updated: %u\r\n", metric->lastUpdateMillis);
     }
   }
   else if (strcmp(arg, "task") == 0)
@@ -123,11 +123,11 @@ void Console::runCommand()
 
       if (strlen(arg) == 0)
       {
-        log_i("List of tasks:");
+        Serial.println("List of tasks:");
         for (uint8_t i = 0; i < vehicle->totalTasks; i++)
         {
           Task *task = vehicle->tasks[i];
-          log_i("%s", task->id);
+          Serial.println(task->id);
         }
         return;
       }
@@ -135,17 +135,17 @@ void Console::runCommand()
       Task *task = vehicle->getTask(arg);
       if (task)
       {
-        log_i("Running task [%s]", task->id);
+        Serial.printf("Running task [%s]\r\n", task->id);
         vehicle->runTask(task);
       }
       else
       {
-        log_w("Failed to find task [%s]", arg);
+        Serial.printf("Failed to find task [%s]\r\n", arg);
       }
     }
     else
     {
-      log_w("Failed to run task - no vehicle found");
+      Serial.println("Failed to run task - no vehicle found");
     }
   }
   else if (strcmp(arg, "can") == 0)
@@ -182,7 +182,7 @@ void Console::runCommand()
         
         bus->setMonitoredMessageId(msgId);
 
-        log_i("Monitoring [%03X] on bus %u", msgId, busId);
+        Serial.printf("Monitoring [%03X] on bus %u\r\n", msgId, busId);
       }
       else if (strcmp(arg, "discover") == 0)
       {
@@ -199,7 +199,7 @@ void Console::runCommand()
     }
     else
     {
-      log_w("Failed to run CAN command - no vehicle found");
+      Serial.println("Failed to run CAN command - no vehicle found");
     }
   }
   else if (strcmp(arg, "restart") == 0)
