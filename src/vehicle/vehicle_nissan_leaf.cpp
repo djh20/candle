@@ -102,7 +102,7 @@ void VehicleNissanLeaf::begin()
   bmsTask->setEnabled(false);
   registerTask(bmsTask);
 
-  static const uint8_t slowChargesReq[] = {0x03, 0x22, 0x12, 0x05};
+  static const uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargesTask = new PollTask(
     "slow_charges", mainBus, FID_VCM_REQ, slowChargesReq, sizeof(slowChargesReq)
   );
@@ -112,7 +112,7 @@ void VehicleNissanLeaf::begin()
   registerTask(slowChargesTask);
   setTaskInterval(slowChargesTask, 60000); // every minute
 
-  static const uint8_t fastChargesReq[] = {0x03, 0x22, 0x12, 0x03};
+  static const uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
   fastChargesTask = new PollTask(
     "fast_charges", mainBus, FID_VCM_REQ, fastChargesReq, sizeof(fastChargesReq)
   );
