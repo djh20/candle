@@ -1,5 +1,5 @@
 # Candle
-[![PlatformIO CI](https://github.com/djh20/candle/actions/workflows/pio.yml/badge.svg)](https://github.com/djh20/candle/actions/workflows/pio.yml)
+[![Build](https://github.com/djh20/candle/actions/workflows/build.yml/badge.svg)](https://github.com/djh20/candle/actions/workflows/build.yml)
 
 ESP32 firmware for processing and transmitting vehicle CAN bus data over bluetooth.
 
