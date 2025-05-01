@@ -3,13 +3,13 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - '*.*.*'
 
 jobs:
   build:
     uses: ./.github/workflows/build.yml
     with:
-      version_tag: ${{ github.ref_name }}
+      firmware_version: ${{ github.ref_name }}
     
   release:
     name: Create Release
