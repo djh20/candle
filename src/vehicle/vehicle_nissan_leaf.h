@@ -73,8 +73,9 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *gatewayWakeTask;
     MultiTask *keepAwakeTask;
     
-    PollTask *bmsReqTask;
-    MultiTask *bmsTask;
+    PollTask *bmsEnergyTask;
+    MultiTask *bmsEnergyTaskWakeful;
+    PollTask *bmsHealthTask;
 
     PollTask *vcmDiagTask;
     

@@ -89,18 +89,23 @@ void VehicleNissanLeaf::begin()
   keepAwakeTask->minAttemptDuration = 50;
   keepAwakeTask->mode = TaskMode::RepeatUntilStopped;
   
-  // This task requests battery stats from the BMS/LBC.
-  static const uint8_t bmsReq[8] = {0x02, 0x21, 0x01};
-  bmsReqTask = new PollTask("bms_req", mainBus, FID_LBC_REQ, bmsReq, sizeof(bmsReq));
-  bmsReqTask->configureResponse(FID_LBC_RES, 6);
-  bmsReqTask->maxAttemptDuration = 500;
-  registerTask(bmsReqTask);
+  // This task requests battery energy stats from the BMS/LBC.
+  static const uint8_t bmsEnergyReq[8] = {0x02, 0x21, 0x01};
+  bmsEnergyTask = new PollTask("bms_energy", mainBus, FID_LBC_REQ, bmsEnergyReq, sizeof(bmsEnergyReq));
+  bmsEnergyTask->configureResponse(FID_LBC_RES, 6);
+  bmsEnergyTask->maxAttemptDuration = 500;
+  registerTask(bmsEnergyTask);
 
-  bmsTask = new MultiTask("bms");
-  bmsTask->add(0, keepAwakeTask, false);
-  bmsTask->add(0, bmsReqTask);
-  bmsTask->setEnabled(false);
-  registerTask(bmsTask);
+  bmsEnergyTaskWakeful = new MultiTask("bms_energy_wakeful");
+  bmsEnergyTaskWakeful->add(0, keepAwakeTask, false);
+  bmsEnergyTaskWakeful->add(0, bmsEnergyTask);
+  registerTask(bmsEnergyTaskWakeful);
+
+  static const uint8_t bmsHealthReq[8] = {0x02, 0x21, 0x61};
+  bmsHealthTask = new PollTask("bms_health", mainBus, FID_LBC_REQ, bmsHealthReq, sizeof(bmsHealthReq));
+  bmsHealthTask->configureResponse(FID_LBC_RES, 2, false);
+  bmsHealthTask->maxAttemptDuration = 500;
+  registerTask(bmsHealthTask);
 
   static const uint8_t vcmDiagReq[8] = {0x02, 0x10, 0xC0};
   vcmDiagTask = new PollTask(
@@ -224,18 +229,12 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       // Gids shows as high value on startup - this is incorrect, so we ignore it.
       if (gids < 500)
       {
-        // Range
+        // Perform simple range calculation based on energy remaining.
+        // TODO: Calculate based on driving efficiency.
         double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
         if (energyKwh < 0) energyKwh = 0;
         range->setValue((int32_t)(energyKwh * KM_PER_KWH));
       }
-
-      //uint32_t rawBatteryTemp = (data[0] / 2);
-      //batteryTemp->setValue((data[0] / 2.0), true);
-      //batteryTemp->setValue((data[0] * 0.25) - 10, true);
-      
-      int32_t health = data[1] >> 1;
-      if (health > 0) soh->setValue(health);
     }
     else if (id == 0x260) // Data for instrumentation cluster
     {
@@ -372,7 +371,7 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
 
 void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
-  if (task == bmsReqTask)
+  if (task == bmsEnergyTask)
   {
     float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
     if (newSoc >= 0 && newSoc <= 100) soc->setValue(newSoc);
@@ -392,6 +391,12 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 
       float current = (rawCurrent > 0) ? (rawCurrent / 1024.0) : 0;
       chargePower->setValue((batteryVoltage->getValue() * current) / 1000.0);
+    }
+  }
+  else if (task == bmsHealthTask) 
+  {
+    if (frames[0][2] == 0x61) {
+      soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
     }
   }
   else if (task == quickChargeCountTask)
@@ -449,12 +454,12 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   {
     bool carOn = ignition->valid && ignition->getValue();
 
-    setTaskInterval(bmsTask, carOn ? 5000 : 120000);
-    bmsReqTask->maxAttempts = carOn ? 3 : 10;
+    setTaskInterval(bmsEnergyTaskWakeful, carOn ? 5000 : 120000);
+    bmsEnergyTask->maxAttempts = carOn ? 3 : 10;
 
     setTaskInterval(tcuIdleTask, carOn ? 1000 : 0);
-
-    setTaskInterval(chargeCountTask, carOn ? 60000 : 0);
+    setTaskInterval(chargeCountTask, carOn ? 120000 : 0);
+    setTaskInterval(bmsHealthTask, carOn ? 120000 : 0);
 
     genericWakeTask->setEnabled(!carOn);
     gatewayWakeTask->setEnabled(!carOn);
@@ -492,7 +497,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 
     // TODO: Figure out a way to detect charge status on MY2011-2012.
 
-    bmsTask->setEnabled(carOn || ccOn || (charging && passiveChargeDetection));
+    bmsEnergyTaskWakeful->setEnabled(carOn || ccOn || (charging && passiveChargeDetection));
   }
   else if (metric == motorPower || metric == ccPower || metric == auxPower)
   {
