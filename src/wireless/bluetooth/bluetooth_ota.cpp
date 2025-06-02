@@ -7,7 +7,7 @@
 #define STATUS_CODE_SUCCESS 0U
 #define STATUS_CODE_ERROR 1U
 
-#define VERIFY_DELAY 3000U
+#define VERIFY_DELAY 10000U
 #define RESTART_DELAY 500U
 
 // Override function in esp32-hal-misc.c to disable automatic app verification after OTA.
