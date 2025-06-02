@@ -72,18 +72,21 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *genericWakeTask;
     PollTask *gatewayWakeTask;
     MultiTask *keepAwakeTask;
-
+    
     PollTask *bmsReqTask;
     MultiTask *bmsTask;
+
+    PollTask *vcmDiagTask;
+    
+    PollTask *slowChargeCountTask;
+    PollTask *quickChargeCountTask;
+    MultiTask *chargeCountTask;
 
     MultiTask *chargePortTask;
 
     MultiTask *ccOnTask;
     MultiTask *ccOffTask;
     PollTask *tcuIdleTask;
-
-    PollTask *slowChargesTask;
-    PollTask *fastChargesTask;
 
     bool preconActive = false;
     uint32_t preconStartMillis;

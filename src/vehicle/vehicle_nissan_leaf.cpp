@@ -102,25 +102,35 @@ void VehicleNissanLeaf::begin()
   bmsTask->setEnabled(false);
   registerTask(bmsTask);
 
-  static const uint8_t slowChargesReq[8] = {0x03, 0x22, 0x12, 0x05};
-  slowChargesTask = new PollTask(
-    "slow_charges", mainBus, FID_VCM_REQ, slowChargesReq, sizeof(slowChargesReq)
+  static const uint8_t vcmDiagReq[8] = {0x02, 0x10, 0xC0};
+  vcmDiagTask = new PollTask(
+    "vcm_diag", mainBus, FID_VCM_REQ, vcmDiagReq, sizeof(vcmDiagReq)
   );
-  slowChargesTask->configureResponse(FID_VCM_RES, 1);
-  slowChargesTask->maxAttemptDuration = 500;
-  slowChargesTask->setEnabled(false);
-  registerTask(slowChargesTask);
-  setTaskInterval(slowChargesTask, 60000); // every minute
+  vcmDiagTask->configureResponse(FID_VCM_RES, 1);
+  vcmDiagTask->maxAttemptDuration = 500;
+  registerTask(vcmDiagTask);
 
-  static const uint8_t fastChargesReq[8] = {0x03, 0x22, 0x12, 0x03};
-  fastChargesTask = new PollTask(
-    "fast_charges", mainBus, FID_VCM_REQ, fastChargesReq, sizeof(fastChargesReq)
+  static const uint8_t slowChargeCountReq[8] = {0x03, 0x22, 0x12, 0x05};
+  slowChargeCountTask = new PollTask(
+    "slow_charge_count", mainBus, FID_VCM_REQ, slowChargeCountReq, sizeof(slowChargeCountReq)
   );
-  fastChargesTask->configureResponse(FID_VCM_RES, 1);
-  fastChargesTask->maxAttemptDuration = 500;
-  fastChargesTask->setEnabled(false);
-  registerTask(fastChargesTask);
-  setTaskInterval(fastChargesTask, 60000); // every minute
+  slowChargeCountTask->configureResponse(FID_VCM_RES, 1);
+  slowChargeCountTask->maxAttemptDuration = 500;
+  registerTask(slowChargeCountTask);
+
+  static const uint8_t quickChargeCountReq[8] = {0x03, 0x22, 0x12, 0x03};
+  quickChargeCountTask = new PollTask(
+    "quick_charge_count", mainBus, FID_VCM_REQ, quickChargeCountReq, sizeof(quickChargeCountReq)
+  );
+  quickChargeCountTask->configureResponse(FID_VCM_RES, 1);
+  quickChargeCountTask->maxAttemptDuration = 500;
+  registerTask(quickChargeCountTask);
+  
+  chargeCountTask = new MultiTask("charge_count");
+  chargeCountTask->add(0, vcmDiagTask);
+  chargeCountTask->add(1, slowChargeCountTask);
+  chargeCountTask->add(2, quickChargeCountTask);
+  registerTask(chargeCountTask);
 
   static const uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
@@ -384,11 +394,11 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
       chargePower->setValue((batteryVoltage->getValue() * current) / 1000.0);
     }
   }
-  else if (task == fastChargesTask)
+  else if (task == quickChargeCountTask)
   {
     fastChargeCount->setValue((frames[0][4] << 8) | frames[0][5]);
   }
-  else if (task == slowChargesTask)
+  else if (task == slowChargeCountTask)
   {
     slowChargeCount->setValue((frames[0][4] << 8) | frames[0][5]);
   }
@@ -444,9 +454,8 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 
     setTaskInterval(tcuIdleTask, carOn ? 1000 : 0);
 
-    slowChargesTask->setEnabled(carOn);
-    fastChargesTask->setEnabled(carOn);
-    
+    setTaskInterval(chargeCountTask, carOn ? 60000 : 0);
+
     genericWakeTask->setEnabled(!carOn);
     gatewayWakeTask->setEnabled(!carOn);
     keepAwakeTask->setEnabled(!carOn);
