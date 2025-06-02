@@ -103,7 +103,7 @@ void VehicleNissanLeaf::begin()
 
   static const uint8_t bmsHealthReq[8] = {0x02, 0x21, 0x61};
   bmsHealthTask = new PollTask("bms_health", mainBus, FID_LBC_REQ, bmsHealthReq, sizeof(bmsHealthReq));
-  bmsHealthTask->configureResponse(FID_LBC_RES, 2, false);
+  bmsHealthTask->configureResponse(FID_LBC_RES, 1);
   bmsHealthTask->maxAttemptDuration = 500;
   registerTask(bmsHealthTask);
 
@@ -395,9 +395,7 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   }
   else if (task == bmsHealthTask) 
   {
-    if (frames[0][2] == 0x61) {
-      soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
-    }
+    soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
   }
   else if (task == quickChargeCountTask)
   {

@@ -90,20 +90,19 @@ void PollTask::process()
     if (callbacks) callbacks->onPollResponse(this, resBuffer);
     endAttempt(true);
   }
-  else if (data[0] == 0x10 && flowControl) 
+  else if (data[0] == 0x10) 
   {
     bus->sendFlowControl(reqId);
     log_i("Sent flow control frame");
   }
 }
 
-void PollTask::configureResponse(uint32_t id, uint8_t totalFrames, bool flowControl)
+void PollTask::configureResponse(uint32_t id, uint8_t totalFrames)
 {
   if (totalFrames == 0 || expectedResFrameCount > 0) return;
 
   resId = id;
   expectedResFrameCount = totalFrames;
-  this->flowControl = flowControl;
 
   resBuffer = new uint8_t*[totalFrames];
   for (uint8_t i = 0; i < totalFrames; i++)

@@ -10,7 +10,7 @@ class PollTask: public Task
     PollTask(const char *id, CanBus *bus, uint32_t reqId, const uint8_t reqData[], uint8_t reqDataLen);
     ~PollTask();
     
-    void configureResponse(uint32_t id, uint8_t totalFrames, bool flowControl = true);
+    void configureResponse(uint32_t id, uint8_t totalFrames);
   
   protected:
     void preRun() override;
@@ -27,7 +27,6 @@ class PollTask: public Task
     uint32_t resId;
     uint8_t expectedResFrameCount = 0;
     uint8_t currentResFrameCount = 0;
-    bool flowControl;
 
     uint8_t **resBuffer;
     uint8_t resBufferTracker = 0;
