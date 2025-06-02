@@ -8,7 +8,7 @@ void Config::begin()
   hostname = new StringMetric<1>("mcu", "hostname", MetricType::Parameter, 16);
   GlobalMetricManager.registerMetric(hostname);
 
-  if (!hostname->valid)
+  if (!hostname->isValid())
   {
     uint8_t mac[8];
     esp_efuse_mac_get_default(mac); // Read MAC address from eFuse.
@@ -50,7 +50,7 @@ void Config::begin()
 
 uint8_t Config::getBluetoothMode()
 {
-  return blePin->valid ? BLE_MODE_ENCRYPTED : BLE_MODE_OPEN;
+  return blePin->isValid() ? BLE_MODE_ENCRYPTED : BLE_MODE_OPEN;
 }
 
 Config GlobalConfig;

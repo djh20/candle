@@ -50,6 +50,8 @@ void Task::stop()
   lastFinishMillis = millis();
   running = false;
   yetToRun = false;
+
+  if (callbacks) callbacks->onTaskEnd(this);
 }
 
 void Task::setEnabled(bool enabled)

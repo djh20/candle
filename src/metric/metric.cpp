@@ -39,7 +39,7 @@ void Metric::begin()
     loadState();
     log_i("Loaded state of [%s] from NVS", id);
 
-    valid = true;
+    isNull = false;
   }
   prefs.end();
 }
@@ -50,7 +50,7 @@ void Metric::save()
 
   prefs.begin(domain, RW_MODE);
 
-  if (valid) 
+  if (isValid()) 
   {
     saveState();
   }
@@ -64,25 +64,27 @@ void Metric::save()
   log_i("Saved state of [%s] to NVS", id);
 }
 
-void Metric::loadState() {}
-void Metric::saveState() {}
-
 void Metric::onUpdate(std::function<void()> handler)
 {
   updateHandler = handler;
 }
 
-void Metric::invalidate()
+void Metric::nullify()
 {
-  if (!valid) return;
+  if (isNull) return;
   
-  valid = false;
+  isNull = true;
   markAsUpdated();
 }
 
 void Metric::redact()
 {
   redacted = true;
+}
+
+bool Metric::isValid() {
+  // TODO: Add some sort of validation system (e.g. min & max values).
+  return !isNull;
 }
 
 void Metric::getState(char *buffer)
@@ -106,7 +108,7 @@ void Metric::getState(JsonDocument &json)
   {
     json[domain][localId] = "REDACTED";
   }
-  else if (!valid)
+  else if (isNull)
   {
     json[domain][localId] = nullptr;
   }
@@ -130,7 +132,7 @@ void Metric::markAsUpdated()
 
 void Metric::getStateData(uint8_t *buffer, uint8_t &bufferIndex) 
 {
-  buffer[bufferIndex++] = valid; // Flags (currently only used for validity)
+  buffer[bufferIndex++] = isValid(); // Flags (currently only used for validity)
 }
 
 uint8_t Metric::getStateDataSize()

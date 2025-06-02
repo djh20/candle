@@ -18,6 +18,13 @@
 
 #define FID_TCU 0x56E
 
+enum Model {
+  MODEL_ZE0,    // 2011-2012
+  MODEL_AZE0_0, // 2013-2014
+  MODEL_AZE0_1, // 2015-2016
+  MODEL_AZE0_2  // 2016-2017
+};
+
 VehicleNissanLeaf::VehicleNissanLeaf() : Vehicle("nl") {}
 
 void VehicleNissanLeaf::begin()
@@ -28,7 +35,7 @@ void VehicleNissanLeaf::begin()
 
   registerMetrics({
     /* Parameters */
-    modelYear = new IntMetric<1>(domain, "model_year", MetricType::Parameter),
+    model = new IntMetric<1>(domain, "model", MetricType::Parameter),
     
     /* Driving */
     speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour),
@@ -137,6 +144,20 @@ void VehicleNissanLeaf::begin()
   chargeCountTask->add(2, quickChargeCountTask);
   registerTask(chargeCountTask);
 
+  static const uint8_t chargeModeReq[8] = {0x03, 0x22, 0x11, 0x4E};
+  chargeModeTask = new PollTask(
+    "charge_mode", mainBus, FID_VCM_REQ, chargeModeReq, sizeof(chargeModeReq)
+  );
+  chargeModeTask->configureResponse(FID_VCM_RES, 1);
+  chargeModeTask->maxAttemptDuration = 500;
+  registerTask(chargeModeTask);
+
+  chargeModeTaskWakeful = new MultiTask("charge_mode_wakeful");
+  chargeModeTaskWakeful->add(0, genericWakeTask);
+  chargeModeTaskWakeful->add(1, vcmDiagTask);
+  chargeModeTaskWakeful->add(2, chargeModeTask);
+  registerTask(chargeModeTaskWakeful);
+
   static const uint8_t chargePortReq[8] = {0x00, 0x03, 0x00, 0x00, 0x00, 0x08};
   PollTask *chargePortReqTask = new PollTask(
     "charge_port_req", mainBus, 0x35D, chargePortReq, sizeof(chargePortReq)
@@ -176,8 +197,8 @@ void VehicleNissanLeaf::begin()
   tcuIdleTask->maxAttemptDuration = 0;
   registerTask(tcuIdleTask);
 
-  // Trigger an update event to handle the loaded model year value.
-  metricUpdated(modelYear);
+  // Trigger an update event to handle the loaded model parameter.
+  metricUpdated(model);
 
   // Halt cabin preconditioning to prevent potential battery drain.
   // An ESP reboot would cause the system to lose track of the timer,
@@ -238,28 +259,27 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     }
     else if (id == 0x260) // Data for instrumentation cluster
     {
-      if (modelYear->valid)
+      if (model->isValid())
       {
         // Here we use the instrument cluster 'power bubble' data to calculate motor power.
         // The format of this message varies depending on model year (tested on MY2011 and MY2017).
         // I'm assuming that MY2013 and later all have the new format, but this needs further testing.
 
-        bool newFormat = modelYear->getValue() >= 2013;
-        uint16_t offset = newFormat ? 2000 : 400; // Value at rest (0 kW)
+        bool isNewFormat = model->getValue() >= MODEL_AZE0_0;
+        uint16_t offset = isNewFormat ? 2000 : 400; // Value at rest (0 kW)
 
         // Get raw power and make zero the midpoint (usage is positive, regen is negative).
         int32_t rawPower = ((data[2] << 4) | (data[3] >> 4)) - offset;
         float scalar = 0;
 
-        if (newFormat)
+        if (isNewFormat)
         {
-          // Scalar of 0.05 (for usage) seems to roughly track battery power.
-          // Scalar of 0.015 (for regen) seems to roughly track battery power.
+          // Scalar of 0.05 for consumption and 0.015 for regen.
           scalar = (rawPower > 0) ? 0.05 : 0.015;
         }
         else
         {
-          // Scalar of 0.125 seems to roughly track battery power.
+          // Scalar of 0.125 for consumption and regen.
           scalar = 0.125;
         }
 
@@ -329,7 +349,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
       }
       else
       {
-        cruiseSpeed->invalidate();
+        cruiseSpeed->nullify();
       }
     }
     else if (id == 0x5C0) // Lithium Battery Controller (500ms)
@@ -369,6 +389,13 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
   }
 }
 
+void VehicleNissanLeaf::onTaskEnd(Task *task)
+{
+  if ((task == chargeModeTask || task == chargeModeTaskWakeful) && !task->isSuccessful()) {
+    chargeMode->setValue(0);
+  }
+}
+
 void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsEnergyTask)
@@ -381,7 +408,7 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
 
-    if (chargeMode->valid && chargeMode->getValue())
+    if (chargeMode->isValid() && chargeMode->getValue())
     {
       int32_t rawCurrent = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
       if (rawCurrent & 0x8000000 == 0x8000000) 
@@ -396,6 +423,10 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   else if (task == bmsHealthTask) 
   {
     soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
+  }
+  else if (task == chargeModeTask)
+  {
+    chargeMode->setValue(frames[0][4]);
   }
   else if (task == quickChargeCountTask)
   {
@@ -437,27 +468,35 @@ void VehicleNissanLeaf::updateExtraMetrics()
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   /* Individual Metrics */
-  if (metric == modelYear)
+  if (metric == model)
   {
-    bool hasChargePortActuator = modelYear->valid && modelYear->getValue() >= 2013;
+    bool hasChargePortActuator = model->isValid() && model->getValue() >= MODEL_AZE0_0;
     chargePortTask->setEnabled(hasChargePortActuator);
 
     // Remote climate only works on leafs with the new TCU on CAR-CAN.
-    bool supportsRemoteCc = modelYear->valid && modelYear->getValue() >= 2016;
-    ccOnTask->setEnabled(supportsRemoteCc);
-    ccOffTask->setEnabled(supportsRemoteCc);
-    tcuIdleTask->setEnabled(supportsRemoteCc);
+    bool supportsPreconditioning = model->isValid() && model->getValue() >= MODEL_AZE0_2;
+    ccOnTask->setEnabled(supportsPreconditioning);
+    ccOffTask->setEnabled(supportsPreconditioning);
+    tcuIdleTask->setEnabled(supportsPreconditioning);
+
+    // Newer leafs wake up the CAR-CAN when charging starts and finishes.
+    // This allows for passive charge status detection (no polling necessary).
+    // I assume this is only for AZE0-2...
+    bool mustPollForChargeMode = model->isValid() && model->getValue() < MODEL_AZE0_2;
+    chargeModeTaskWakeful->setEnabled(mustPollForChargeMode);
   }
   else if (metric == ignition)
   {
-    bool carOn = ignition->valid && ignition->getValue();
+    bool carOn = ignition->isValid() && ignition->getValue();
 
-    setTaskInterval(bmsEnergyTaskWakeful, carOn ? 5000 : 120000);
+    setTaskInterval(bmsEnergyTaskWakeful, carOn ? 5000 : 2*60*1000);
     bmsEnergyTask->maxAttempts = carOn ? 3 : 10;
 
+    setTaskInterval(bmsHealthTask, carOn ? 5*60*1000 : 0);
+
     setTaskInterval(tcuIdleTask, carOn ? 1000 : 0);
-    setTaskInterval(chargeCountTask, carOn ? 120000 : 0);
-    setTaskInterval(bmsHealthTask, carOn ? 120000 : 0);
+    setTaskInterval(chargeCountTask, carOn ? 5*60*1000 : 0);
+    setTaskInterval(chargeModeTaskWakeful, carOn ? 0 : 5*60*1000);
 
     genericWakeTask->setEnabled(!carOn);
     gatewayWakeTask->setEnabled(!carOn);
@@ -470,7 +509,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
   else if (metric == chargeMode)
   {
-    bool charging = chargeMode->valid && chargeMode->getValue();
+    bool charging = chargeMode->isValid() && chargeMode->getValue();
     if (charging)
     {
       endTrip();
@@ -482,20 +521,13 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
 
   /* Multiple Metrics */
-  if (metric == ignition || metric == chargeMode || metric == ccStatus || metric == modelYear)
+  if (metric == ignition || metric == chargeMode || metric == ccStatus)
   {
-    bool carOn = ignition->valid && ignition->getValue();
-    bool ccOn = ccStatus->valid && ccStatus->getValue();
-    bool charging = chargeMode->valid && chargeMode->getValue();
+    bool carOn = ignition->isValid() && ignition->getValue();
+    bool ccOn = ccStatus->isValid() && ccStatus->getValue();
+    bool charging = chargeMode->isValid() && chargeMode->getValue();
 
-    // Newer leafs wake up the CAR-CAN when charging starts and finishes.
-    // This allows for passive charge status detection (no requests necessary).
-    // Note: This might only be MY2016 onwards - additional testing required.
-    bool passiveChargeDetection = modelYear->valid && modelYear->getValue() >= 2013;
-
-    // TODO: Figure out a way to detect charge status on MY2011-2012.
-
-    bmsEnergyTaskWakeful->setEnabled(carOn || ccOn || (charging && passiveChargeDetection));
+    bmsEnergyTaskWakeful->setEnabled(carOn || ccOn || charging);
   }
   else if (metric == motorPower || metric == ccPower || metric == auxPower)
   {
@@ -517,7 +549,7 @@ void VehicleNissanLeaf::runHomeTasks()
 void VehicleNissanLeaf::startTrip()
 {
   if (tripInProgress) return;
-  if (!range->valid || !odometer->valid) return;
+  if (!range->isValid() || !odometer->isValid()) return;
 
   tripInProgress = true;
   tripDistance->setValue(0);
@@ -530,7 +562,7 @@ void VehicleNissanLeaf::endTrip()
 {
   tripInProgress = false;
   tripDistance->setValue(0);
-  tripEfficiency->invalidate();
+  tripEfficiency->nullify();
   rangeAtLastCharge = 0;
   odometerAtLastCharge = 0;
 }

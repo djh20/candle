@@ -20,10 +20,10 @@ class StringMetric: public Metric
     {
       char *currentValue = getValue(elementIndex);
 
-      if (strncmp(currentValue, newValue, elementSize) == 0 && valid) return;
+      if (strncmp(currentValue, newValue, elementSize) == 0 && !isNull) return;
 
       strncpy(currentValue, newValue, elementSize-1); // -1 for null terminator
-      valid = true;
+      isNull = false;
 
       markAsUpdated();
     }

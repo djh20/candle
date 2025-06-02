@@ -16,7 +16,7 @@ class VehicleNissanLeaf: public Vehicle
 
     CanBus *mainBus;
 
-    IntMetric<1> *modelYear;
+    IntMetric<1> *model;
 
     FloatMetric<1> *speed;    
     IntMetric<1> *gear;
@@ -56,6 +56,7 @@ class VehicleNissanLeaf: public Vehicle
   protected:
     void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) override;
     void onTaskRun(Task *task) override;
+    void onTaskEnd(Task *task) override;
     void onPollResponse(Task *task, uint8_t **frames) override;
     void updateExtraMetrics() override;
     void metricUpdated(Metric *metric) override;
@@ -82,6 +83,9 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *slowChargeCountTask;
     PollTask *quickChargeCountTask;
     MultiTask *chargeCountTask;
+
+    PollTask *chargeModeTask;
+    MultiTask *chargeModeTaskWakeful;
 
     MultiTask *chargePortTask;
 

@@ -26,10 +26,10 @@ class FloatMetric: public Metric
 
     void setValue(float newValue, uint8_t elementIndex = 0)
     {
-      if (newValue == getValue(elementIndex) && valid) return;
+      if (newValue == getValue(elementIndex) && !isNull) return;
 
-      valid = true;
       state[elementIndex] = newValue;
+      isNull = false;
 
       markAsUpdated();
     }

@@ -55,8 +55,10 @@ class Metric
     void save();
 
     void onUpdate(std::function<void()> handler);
-    void invalidate();
+    void nullify();
     void redact();
+
+    bool isValid();
 
     virtual void setValueFromString(const char *newValue, uint8_t elementIndex = 0) = 0;
     virtual void getValue(char *buffer, uint8_t elementIndex = 0) = 0;
@@ -77,7 +79,7 @@ class Metric
     MetricType type;
     MetricDataType dataType;
 
-    bool valid = false;
+    bool isNull = true;
     bool redacted = false;
     uint32_t lastUpdateMillis = 0;
     uint32_t lastSaveMillis = 0;
@@ -88,8 +90,8 @@ class Metric
     virtual void getValue(JsonArray &json, uint8_t elementIndex = 0) = 0;
 
     void markAsUpdated();
-    virtual void loadState();
-    virtual void saveState();
+    virtual void loadState() = 0;
+    virtual void saveState() = 0;
 
     std::function<void()> updateHandler;
 

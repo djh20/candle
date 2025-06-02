@@ -22,7 +22,7 @@ void WirelessManager::loop()
   {
     targetProtocol = forcedProtocol;
   } 
-  else if (vehicle && vehicle->ignition->valid && !vehicle->ignition->getValue())
+  else if (vehicle && vehicle->ignition->isValid() && !vehicle->ignition->getValue())
   {
     targetProtocol = WirelessProtocol::WiFi;
   }

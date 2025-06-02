@@ -47,6 +47,7 @@ class Vehicle: protected TaskCallbacks
     void handleTasks();
     virtual void processFrame(CanBus *bus, const uint32_t &id, uint8_t *data) {}
     virtual void onTaskRun(Task *task) {}
+    virtual void onTaskEnd(Task *task) {}
     virtual void onPollResponse(Task *task, uint8_t **frames) {}
     virtual void updateExtraMetrics() {}
     virtual void metricUpdated(Metric *metric) {}

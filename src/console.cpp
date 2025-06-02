@@ -101,16 +101,16 @@ void Console::runCommand()
       metric->getState(arg); // Reuse command buffer
       Serial.printf("Set [%s] to [%s]\r\n", metric->id, arg);
     }
-    else if (strcmp(arg, "invalidate") == 0)
+    else if (strcmp(arg, "nullify") == 0)
     {
-      metric->invalidate();
+      metric->nullify();
       metric->save();
-      Serial.printf("The value of [%s] is no longer valid\r\n", metric->id);
+      Serial.printf("The value of [%s] is now null\r\n", metric->id);
     }
     else if (strlen(arg) == 0)
     {
       metric->getState(arg); // Reuse command buffer
-      Serial.printf("Current State: %s (%s)\r\n", arg, metric->valid ? "valid" : "invalid");
+      Serial.printf("Current State: %s (%s)\r\n", arg, metric->isValid() ? "valid" : "invalid");
       Serial.printf("Last Updated: %u\r\n", metric->lastUpdateMillis);
     }
   }

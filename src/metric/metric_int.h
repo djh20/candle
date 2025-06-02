@@ -21,10 +21,10 @@ class IntMetric: public Metric
 
     void setValue(int32_t newValue, uint8_t elementIndex = 0)
     {
-      if (newValue == getValue(elementIndex) && valid) return;
+      if (newValue == getValue(elementIndex) && !isNull) return;
 
-      valid = true;
       state[elementIndex] = newValue;
+      isNull = false;
 
       markAsUpdated();
     }
