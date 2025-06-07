@@ -208,6 +208,8 @@ void VehicleNissanLeaf::begin()
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
 {
+  detectModelVariant(id);
+
   if (bus == mainBus)
   {
     if (id == 0x002) // Steering
@@ -526,6 +528,20 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   else if (metric == motorPower || metric == ccPower || metric == auxPower)
   {
     netPower->setValue(motorPower->getValue() + ccPower->getValue() + auxPower->getValue());
+  }
+}
+
+void VehicleNissanLeaf::detectModelVariant(const uint32_t &frameId) 
+{
+  if (!modelVariant->isNull) return;
+
+  switch (frameId) 
+  {
+    case 0x1CA: // Unique to ZE0
+      modelVariant->setValue(MODEL_ZE0);
+      break;
+    
+    // TODO: Detect AZE0 variants
   }
 }
 

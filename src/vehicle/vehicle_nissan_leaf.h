@@ -63,6 +63,8 @@ class VehicleNissanLeaf: public Vehicle
     void testCycle() override;
 
   private:
+    void detectModelVariant(const uint32_t &frameId);
+
     void startTrip();
     void endTrip();
 
