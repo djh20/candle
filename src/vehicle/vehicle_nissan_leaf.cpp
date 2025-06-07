@@ -18,7 +18,7 @@
 
 #define FID_TCU 0x56E
 
-enum Model {
+enum ModelVariant {
   MODEL_ZE0,    // 2011-2012
   MODEL_AZE0_0, // 2013-2014
   MODEL_AZE0_1, // 2015-2016
@@ -35,7 +35,7 @@ void VehicleNissanLeaf::begin()
 
   registerMetrics({
     /* Parameters */
-    model = new IntMetric<1>(domain, "model", MetricType::Parameter),
+    modelVariant = new IntMetric<1>(domain, "model_variant", MetricType::Parameter),
     
     /* Driving */
     speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour),
@@ -197,8 +197,8 @@ void VehicleNissanLeaf::begin()
   tcuIdleTask->maxAttemptDuration = 0;
   registerTask(tcuIdleTask);
 
-  // Trigger an update event to handle the loaded model parameter.
-  metricUpdated(model);
+  // Trigger an update event to handle the loaded model variant parameter.
+  metricUpdated(modelVariant);
 
   // Halt cabin preconditioning to prevent potential battery drain.
   // An ESP reboot would cause the system to lose track of the timer,
@@ -245,13 +245,13 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     }
     else if (id == 0x260) // Data for instrumentation cluster
     {
-      if (model->isValid())
+      if (modelVariant->isValid())
       {
         // Here we use the instrument cluster 'power bubble' data to calculate motor power.
-        // The format of this message varies depending on model year (tested on MY2011 and MY2017).
+        // The format of this message varies depending on model variant (tested on MY2011 and MY2017).
         // I'm assuming that MY2013 and later all have the new format, but this needs further testing.
 
-        bool isNewFormat = model->getValue() >= MODEL_AZE0_0;
+        bool isNewFormat = modelVariant->getValue() >= MODEL_AZE0_0;
         uint16_t offset = isNewFormat ? 2000 : 400; // Value at rest (0 kW)
 
         // Get raw power and make zero the midpoint (usage is positive, regen is negative).
@@ -462,13 +462,13 @@ void VehicleNissanLeaf::updateExtraMetrics()
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   /* Individual Metrics */
-  if (metric == model)
+  if (metric == modelVariant)
   {
-    bool hasChargePortActuator = model->isValid() && model->getValue() >= MODEL_AZE0_0;
+    bool hasChargePortActuator = modelVariant->isValid() && modelVariant->getValue() >= MODEL_AZE0_0;
     chargePortTask->setEnabled(hasChargePortActuator);
 
     // Remote climate only works on leafs with the new TCU on CAR-CAN.
-    bool supportsPreconditioning = model->isValid() && model->getValue() >= MODEL_AZE0_2;
+    bool supportsPreconditioning = modelVariant->isValid() && modelVariant->getValue() >= MODEL_AZE0_2;
     ccOnTask->setEnabled(supportsPreconditioning);
     ccOffTask->setEnabled(supportsPreconditioning);
     tcuIdleTask->setEnabled(supportsPreconditioning);
@@ -476,7 +476,7 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
     // Newer leafs wake up the CAR-CAN when charging starts and finishes.
     // This allows for passive charge status detection (no polling necessary).
     // I assume this is only for AZE0-2...
-    bool mustPollForChargeMode = model->isValid() && model->getValue() < MODEL_AZE0_2;
+    bool mustPollForChargeMode = modelVariant->isValid() && modelVariant->getValue() < MODEL_AZE0_2;
     chargeModeTaskWakeful->setEnabled(mustPollForChargeMode);
   }
   else if (metric == ignition)

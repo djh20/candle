@@ -16,7 +16,7 @@ class VehicleNissanLeaf: public Vehicle
 
     CanBus *mainBus;
 
-    IntMetric<1> *model;
+    IntMetric<1> *modelVariant;
 
     FloatMetric<1> *speed;    
     IntMetric<1> *gear;
