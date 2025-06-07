@@ -5,9 +5,9 @@
 #include "metric/metric_manager.h"
 
 #define WH_PER_GID 80
-#define KM_PER_KWH 6.2
+#define KM_PER_KWH 6.2f
+#define RESERVED_CAPACITY_KWH 0.8f
 #define NOMINAL_PACK_VOLTAGE 360
-#define MAX_SOC_PERCENT 95
 #define PRECON_AUTO_OFF_MS 30*60*1000
 
 #define FID_VCM_REQ 0x797
@@ -243,20 +243,6 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         gear->setValue(0);
       }
     }
-    else if (id == 0x5B3) // VCM to Cluster
-    {
-      uint16_t gids = ((data[4] & 0x01) << 8) | data[5];
-      
-      // Gids shows as high value on startup - this is incorrect, so we ignore it.
-      if (gids < 500)
-      {
-        // Perform simple range calculation based on energy remaining.
-        // TODO: Calculate based on driving efficiency.
-        double energyKwh = ((gids*WH_PER_GID)/1000.0)-1.15;
-        if (energyKwh < 0) energyKwh = 0;
-        range->setValue((int32_t)(energyKwh * KM_PER_KWH));
-      }
-    }
     else if (id == 0x260) // Data for instrumentation cluster
     {
       if (model->isValid())
@@ -400,11 +386,17 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsEnergyTask)
   {
-    float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0;
+    float newSoc = ((frames[4][5] << 16) | (frames[4][6] << 8) | frames[4][7]) / 10000.0f;
     if (newSoc >= 0 && newSoc <= 100) soc->setValue(newSoc);
 
-    uint32_t batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | (frames[5][4])) / 10000.0;
-    batteryCapacity->setValue((batteryCapacityAh * NOMINAL_PACK_VOLTAGE) / 1000.0); // Convert Ah to kWh
+    float batteryCapacityAh = ((frames[5][2] << 16) | (frames[5][3] << 8) | frames[5][4]) / 10000.0f;
+    batteryCapacity->setValue(batteryCapacityAh * NOMINAL_PACK_VOLTAGE / 1000.0f); // Convert Ah to kWh
+
+    // Perform simple range calculation based on energy remaining.
+    // TODO: Calculate based on driving efficiency.
+    float remainingEnergy = (batteryCapacity->getValue() * soc->getValue() / 100.0f) - RESERVED_CAPACITY_KWH;
+    remainingEnergy = max(remainingEnergy, 0.0f);
+    range->setValue((int32_t)(remainingEnergy * KM_PER_KWH));
 
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
 
@@ -422,7 +414,9 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   }
   else if (task == bmsHealthTask) 
   {
-    soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
+    if ((frames[0][0] & 0xF0) == 0x10 && frames[0][3] == 0x61) {
+      soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
+    }
   }
   else if (task == chargeModeTask)
   {
