@@ -112,6 +112,7 @@ void VehicleNissanLeaf::begin()
   bmsHealthTask = new PollTask("bms_health", mainBus, FID_LBC_REQ, bmsHealthReq, sizeof(bmsHealthReq));
   bmsHealthTask->configureResponse(FID_LBC_RES, 1);
   bmsHealthTask->maxAttemptDuration = 500;
+  bmsHealthTask->maxAttempts = 4;
   registerTask(bmsHealthTask);
 
   static const uint8_t vcmDiagReq[8] = {0x02, 0x10, 0xC0};
@@ -384,7 +385,7 @@ void VehicleNissanLeaf::onTaskEnd(Task *task)
   }
 }
 
-void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
+bool VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 {
   if (task == bmsEnergyTask)
   {
@@ -402,7 +403,7 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
 
     batteryVoltage->setValue(((frames[3][1] << 8) | frames[3][2]) / 100.0);
 
-    if (chargeMode->isValid() && chargeMode->getValue())
+    if (chargeMode->isValid() && chargeMode->getValue() > 0)
     {
       int32_t rawCurrent = (frames[1][3] << 24) | (frames[1][4] << 16 | ((frames[1][5] << 8) | frames[1][6]));
       if (rawCurrent & 0x8000000 == 0x8000000) 
@@ -416,9 +417,9 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   }
   else if (task == bmsHealthTask) 
   {
-    if ((frames[0][0] & 0xF0) == 0x10 && frames[0][3] == 0x61) {
-      soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
-    }
+    if ((frames[0][0] & 0xF0) != 0x10 || frames[0][3] != 0x61) return false;
+    
+    soh->setValue((frames[0][6] << 8 | frames[0][7]) / 100.0f);
   }
   else if (task == chargeModeTask)
   {
@@ -432,6 +433,8 @@ void VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   {
     slowChargeCount->setValue((frames[0][4] << 8) | frames[0][5]);
   }
+
+  return true;
 }
 
 void VehicleNissanLeaf::updateExtraMetrics()

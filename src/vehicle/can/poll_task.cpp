@@ -87,8 +87,14 @@ void PollTask::process()
   
   if (currentResFrameCount >= expectedResFrameCount) 
   {
-    if (callbacks) callbacks->onPollResponse(this, resBuffer);
-    endAttempt(true);
+    if (callbacks) 
+    {
+      endAttempt(callbacks->onPollResponse(this, resBuffer));
+    }
+    else 
+    {
+      endAttempt(true);
+    }
   }
   else if (data[0] == 0x10) 
   {

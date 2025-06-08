@@ -65,5 +65,5 @@ class TaskCallbacks
   public:
     virtual void onTaskRun(Task *task) = 0;
     virtual void onTaskEnd(Task *task) = 0;
-    virtual void onPollResponse(Task *task, uint8_t **frames) = 0;
+    virtual bool onPollResponse(Task *task, uint8_t **frames) = 0;
 };
