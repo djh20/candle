@@ -197,6 +197,18 @@ void VehicleNissanLeaf::begin()
   );
   tcuIdleTask->maxAttemptDuration = 0;
   registerTask(tcuIdleTask);
+  
+  static const uint8_t wipersReq[8] = {0x00, 0x03, 0x40};
+  wipersTask = new PollTask(
+    "wipers", mainBus, 0x35D, wipersReq, sizeof(wipersReq)
+  );
+  registerTask(wipersTask);
+
+  static const uint8_t headlightsReq[8] = {0x06};
+  headlightsTask = new PollTask(
+    "headlights", mainBus, 0x60D, headlightsReq, sizeof(headlightsReq)
+  );
+  registerTask(headlightsTask);
 
   // Trigger an update event to handle the loaded model variant parameter.
   metricUpdated(modelVariant);

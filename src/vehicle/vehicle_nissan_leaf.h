@@ -95,6 +95,9 @@ class VehicleNissanLeaf: public Vehicle
     MultiTask *ccOffTask;
     PollTask *tcuIdleTask;
 
+    PollTask *wipersTask;
+    PollTask *headlightsTask;
+
     bool preconActive = false;
     uint32_t preconStartMillis;
 };
