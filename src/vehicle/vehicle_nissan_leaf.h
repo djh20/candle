@@ -11,6 +11,7 @@ class VehicleNissanLeaf: public Vehicle
     VehicleNissanLeaf();
     
     void begin() override;
+    void loop() override;
 
     virtual void runHomeTasks();
 
@@ -36,12 +37,12 @@ class VehicleNissanLeaf: public Vehicle
 
     FloatMetric<1> *netPower;
     FloatMetric<1> *motorPower;
-    FloatMetric<1> *ccPower;
+    FloatMetric<1> *hvacPower;
     FloatMetric<1> *auxPower;
     FloatMetric<1> *chargePower;
 
-    IntMetric<1> *ccStatus;
-    IntMetric<1> *ccFanSpeed;
+    IntMetric<1> *hvacStatus;
+    IntMetric<1> *hvacFanSpeed;
     FloatMetric<1> *ambientTemp;
 
     IntMetric<1> *turnSignal;
@@ -58,7 +59,6 @@ class VehicleNissanLeaf: public Vehicle
     void onTaskRun(Task *task) override;
     void onTaskEnd(Task *task) override;
     bool onPollResponse(Task *task, uint8_t **frames) override;
-    void updateExtraMetrics() override;
     void metricUpdated(Metric *metric) override;
     void testCycle() override;
 
@@ -91,13 +91,14 @@ class VehicleNissanLeaf: public Vehicle
 
     MultiTask *chargePortTask;
 
-    MultiTask *ccOnTask;
-    MultiTask *ccOffTask;
+    MultiTask *preconStartTask;
+    MultiTask *preconStopTask;
     PollTask *tcuIdleTask;
 
     PollTask *wipersTask;
     PollTask *headlightsTask;
 
     bool preconActive = false;
+    bool preconWipersActive = false;
     uint32_t preconStartMillis;
 };

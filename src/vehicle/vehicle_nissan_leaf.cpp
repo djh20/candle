@@ -8,7 +8,12 @@
 #define KM_PER_KWH 6.2f
 #define RESERVED_CAPACITY_KWH 0.8f
 #define NOMINAL_PACK_VOLTAGE 360
+
 #define PRECON_AUTO_OFF_MS 30*60*1000
+#define PRECON_WIPERS_DEFER_MS 5*60*1000
+#define PRECON_WIPERS_INTERVAL_MS 2*60*1000
+#define PRECON_WIPERS_TEMPERATURE_MIN 0
+#define PRECON_WIPERS_TEMPERATURE_MAX 15
 
 #define FID_VCM_REQ 0x797
 #define FID_VCM_RES 0x79A
@@ -58,13 +63,13 @@ void VehicleNissanLeaf::begin()
     /* Power */
     netPower = new FloatMetric<1>(domain, "net_power", MetricType::Statistic, Unit::Kilowatts),
     motorPower = new FloatMetric<1>(domain, "motor_power", MetricType::Statistic, Unit::Kilowatts),
-    ccPower = new FloatMetric<1>(domain, "cc_power", MetricType::Statistic, Unit::Kilowatts),
+    hvacPower = new FloatMetric<1>(domain, "cc_power", MetricType::Statistic, Unit::Kilowatts),
     auxPower = new FloatMetric<1>(domain, "aux_power", MetricType::Statistic, Unit::Kilowatts),
     chargePower = new FloatMetric<1>(domain, "chg_power", MetricType::Statistic, Unit::Kilowatts),
 
     /* Climate Control */
-    ccStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
-    ccFanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
+    hvacStatus = new IntMetric<1>(domain, "cc_status", MetricType::Statistic),
+    hvacFanSpeed = new IntMetric<1>(domain, "cc_fan_speed", MetricType::Statistic),
     ambientTemp = new FloatMetric<1>(domain, "ambient_temp", MetricType::Statistic, Unit::Celsius, Precision::Low),
     
     /* Vehicle Status */
@@ -171,25 +176,25 @@ void VehicleNissanLeaf::begin()
   chargePortTask->add(1, chargePortReqTask);
   registerTask(chargePortTask);
 
-  static const uint8_t ccOnReq[] = {0x4E, 0x08, 0x12, 0x00};
-  PollTask *ccOnReqTask = new PollTask("cc_on_req", mainBus, FID_TCU, ccOnReq, sizeof(ccOnReq));
-  ccOnReqTask->minAttempts = 10;
-  ccOnReqTask->minAttemptDuration = 100;
+  static const uint8_t preconStartReq[] = {0x4E, 0x08, 0x12, 0x00};
+  PollTask *preconStartReqTask = new PollTask("cc_on_req", mainBus, FID_TCU, preconStartReq, sizeof(preconStartReq));
+  preconStartReqTask->minAttempts = 10;
+  preconStartReqTask->minAttemptDuration = 100;
 
-  ccOnTask = new MultiTask("cc_on");
-  ccOnTask->add(0, genericWakeTask);
-  ccOnTask->add(1, ccOnReqTask);
-  registerTask(ccOnTask);
+  preconStartTask = new MultiTask("cc_on");
+  preconStartTask->add(0, genericWakeTask);
+  preconStartTask->add(1, preconStartReqTask);
+  registerTask(preconStartTask);
 
-  static const uint8_t ccOffReq[] = {0x56, 0x00, 0x01, 0x00};
-  PollTask *ccOffReqTask = new PollTask("cc_off_req", mainBus, FID_TCU, ccOffReq, sizeof(ccOffReq));
-  ccOffReqTask->minAttempts = 10;
-  ccOffReqTask->minAttemptDuration = 100;
+  static const uint8_t preconStopReq[] = {0x56, 0x00, 0x01, 0x00};
+  PollTask *preconStopReqTask = new PollTask("cc_off_req", mainBus, FID_TCU, preconStopReq, sizeof(preconStopReq));
+  preconStopReqTask->minAttempts = 10;
+  preconStopReqTask->minAttemptDuration = 100;
 
-  ccOffTask = new MultiTask("cc_off");
-  ccOffTask->add(0, genericWakeTask);
-  ccOffTask->add(1, ccOffReqTask);
-  registerTask(ccOffTask);
+  preconStopTask = new MultiTask("cc_off");
+  preconStopTask->add(0, genericWakeTask);
+  preconStopTask->add(1, preconStopReqTask);
+  registerTask(preconStopTask);
 
   static const uint8_t tcuIdleTaskReq[4] = {0x86};
   tcuIdleTask = new PollTask(
@@ -202,6 +207,8 @@ void VehicleNissanLeaf::begin()
   wipersTask = new PollTask(
     "wipers", mainBus, 0x35D, wipersReq, sizeof(wipersReq)
   );
+  wipersTask->minAttempts = 4;
+  wipersTask->minAttemptDuration = 50;
   registerTask(wipersTask);
 
   static const uint8_t headlightsReq[8] = {0x06};
@@ -216,7 +223,38 @@ void VehicleNissanLeaf::begin()
   // Halt cabin preconditioning to prevent potential battery drain.
   // An ESP reboot would cause the system to lose track of the timer,
   // potentially leaving preconditioning active for a very long time.
-  runTask(ccOffTask);
+  runTask(preconStopTask);
+}
+
+void VehicleNissanLeaf::loop()
+{
+  Vehicle::loop();
+
+  if (preconActive) 
+  {
+    uint32_t preconElapsedTime = millis() - preconStartMillis;
+
+    // Automatically halt cabin preconditioning if left on for too long
+    if (preconElapsedTime >= PRECON_AUTO_OFF_MS)
+    {
+      runTask(preconStopTask);
+      preconActive = false;
+    }
+
+    // Turn on wipers after delay if ambient temperature within specified range
+    // Does this logic make any sense??? idk man
+    else if (!preconWipersActive && preconElapsedTime >= PRECON_WIPERS_DEFER_MS && ambientTemp->isValid())
+    {
+      float temperature = ambientTemp->getValue();
+      bool withinTemperatureRange = temperature >= PRECON_WIPERS_TEMPERATURE_MIN && temperature <= PRECON_WIPERS_TEMPERATURE_MAX;
+
+      if (withinTemperatureRange)
+      {
+        preconWipersActive = true;
+        setTaskInterval(wipersTask, PRECON_WIPERS_INTERVAL_MS);
+      }
+    }
+  }
 }
 
 void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *data)
@@ -310,8 +348,8 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
     }
     else if (id == 0x54B) // A/C Auto Amp
     {
-      ccStatus->setValue((data[1] & 0x40) == 0x40);
-      ccFanSpeed->setValue(data[4] >> 3);
+      hvacStatus->setValue((data[1] & 0x40) == 0x40);
+      hvacFanSpeed->setValue(data[4] >> 3);
     }
     else if (id == 0x510) // A/C Auto Amp
     { 
@@ -320,7 +358,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
         ambientTemp->setValue((data[7] / 2.0) - 40);
       }
 
-      ccPower->setValue(((data[3] >> 1) & 0x3F) * 0.25);
+      hvacPower->setValue(((data[3] >> 1) & 0x3F) * 0.25);
       auxPower->setValue(((data[4] >> 3) & 0x1F) * 0.1);
       chargeMode->setValue(data[1] & 0x07);
     }
@@ -379,14 +417,16 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
 void VehicleNissanLeaf::onTaskRun(Task *task)
 {
-  if (task == ccOnTask) 
+  if (task == preconStartTask) 
   {
     preconStartMillis = millis();
     preconActive = true;
   }
-  else if (task == ccOffTask || task == tcuIdleTask)
+  else if (task == preconStopTask || task == tcuIdleTask)
   {
     preconActive = false;
+    preconWipersActive = false;
+    setTaskInterval(wipersTask, 0);
   }
 }
 
@@ -449,33 +489,6 @@ bool VehicleNissanLeaf::onPollResponse(Task *task, uint8_t **frames)
   return true;
 }
 
-void VehicleNissanLeaf::updateExtraMetrics()
-{
-  // Temporary solution to automatically halt cabin preconditioning if left on for too long
-  if (preconActive && millis() - preconStartMillis > PRECON_AUTO_OFF_MS) {
-    runTask(ccOffTask);
-    preconActive = false;
-  }
-  
-  // Remaining Charge Time
-  // if (now - remainingChargeTime->lastUpdateMillis >= 5000)
-  // {
-  //   if (chargeStatus->getValue() == 1 && batteryPower->getValue() < 0) 
-  //   {
-  //     double percentUntilFull = MAX_SOC_PERCENT - soc->getValue();
-
-  //     double energyRequired = batteryCapacity->getValue() * (percentUntilFull/100.0);
-  //     double chargeTimeHours = (energyRequired / -batteryPower->getValue()) * 1.2;
-
-  //     remainingChargeTime->setValue(chargeTimeHours * 60);
-  //   }
-  //   else
-  //   {
-  //     remainingChargeTime->setValue(0);
-  //   }
-  // }
-}
-
 void VehicleNissanLeaf::metricUpdated(Metric *metric)
 {
   /* Individual Metrics */
@@ -486,8 +499,8 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
 
     // Remote climate only works on leafs with the new TCU on CAR-CAN.
     bool supportsPreconditioning = modelVariant->isValid() && modelVariant->getValue() >= MODEL_AZE0_2;
-    ccOnTask->setEnabled(supportsPreconditioning);
-    ccOffTask->setEnabled(supportsPreconditioning);
+    preconStartTask->setEnabled(supportsPreconditioning);
+    preconStopTask->setEnabled(supportsPreconditioning);
     tcuIdleTask->setEnabled(supportsPreconditioning);
 
     // Newer leafs wake up the CAR-CAN when charging starts and finishes.
@@ -532,17 +545,17 @@ void VehicleNissanLeaf::metricUpdated(Metric *metric)
   }
 
   /* Multiple Metrics */
-  if (metric == ignition || metric == chargeMode || metric == ccStatus)
+  if (metric == ignition || metric == chargeMode || metric == hvacStatus)
   {
     bool carOn = ignition->isValid() && ignition->getValue();
-    bool ccOn = ccStatus->isValid() && ccStatus->getValue();
+    bool hvacOn = hvacStatus->isValid() && hvacStatus->getValue();
     bool charging = chargeMode->isValid() && chargeMode->getValue();
 
-    bmsEnergyTaskWakeful->setEnabled(carOn || ccOn || charging);
+    bmsEnergyTaskWakeful->setEnabled(carOn || hvacOn || charging);
   }
-  else if (metric == motorPower || metric == ccPower || metric == auxPower)
+  else if (metric == motorPower || metric == hvacPower || metric == auxPower)
   {
-    netPower->setValue(motorPower->getValue() + ccPower->getValue() + auxPower->getValue());
+    netPower->setValue(motorPower->getValue() + hvacPower->getValue() + auxPower->getValue());
   }
 }
 
@@ -608,7 +621,7 @@ void VehicleNissanLeaf::testCycle()
 
     soh->setValue(64);
     chargeMode->setValue(0);
-    ccStatus->setValue(0);
+    hvacStatus->setValue(0);
     locked->setValue(false);
     batteryCapacity->setValue(22.45);
     odometer->setValue(123456);

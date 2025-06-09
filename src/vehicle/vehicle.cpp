@@ -26,8 +26,6 @@ void Vehicle::loop()
     lastTestCycleMillis = now;
   }
   #endif
-
-  updateExtraMetrics();
 }
 
 void Vehicle::registerBus(CanBus *bus)

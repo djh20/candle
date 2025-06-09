@@ -15,7 +15,7 @@ class Vehicle: protected TaskCallbacks
     Vehicle(const char* domain);
 
     virtual void begin();
-    void loop();
+    virtual void loop();
     
     void runTask(Task *task);
     Task *getTask(const char *id);
@@ -49,7 +49,6 @@ class Vehicle: protected TaskCallbacks
     virtual void onTaskRun(Task *task) {}
     virtual void onTaskEnd(Task *task) {}
     virtual bool onPollResponse(Task *task, uint8_t **frames) = 0;
-    virtual void updateExtraMetrics() {}
     virtual void metricUpdated(Metric *metric) {}
     virtual void testCycle() {}
 
