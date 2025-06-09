@@ -32,8 +32,6 @@ void WiFiManager::loop()
   }
 
   processScanResults(WiFi.scanComplete());
-
-  GlobalWiFiWebServer.loop();
 }
 
 void WiFiManager::setEnabled(bool enabled)

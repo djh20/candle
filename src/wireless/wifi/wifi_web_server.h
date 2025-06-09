@@ -2,13 +2,13 @@
 
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ESPAsyncHTTPUpdateServer.h>
 #include <ArduinoJson.h>
 
 class WiFiWebServer
 {
   public:
     void begin();
-    void loop();
 
   private:
     static void onVersionRequest(AsyncWebServerRequest *request);
@@ -17,6 +17,7 @@ class WiFiWebServer
     static void onTaskRequest(AsyncWebServerRequest *request);
 
     AsyncWebServer server = AsyncWebServer(80);
+    ESPAsyncHTTPUpdateServer updateServer;
     static JsonDocument doc;
 };
 
