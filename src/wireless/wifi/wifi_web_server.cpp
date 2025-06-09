@@ -14,9 +14,13 @@ void WiFiWebServer::begin()
   server.on("/api/vehicle/task", HTTP_POST, onTaskRequest);
 
   ElegantOTA.begin(&server);
-  ElegantOTA.setAutoReboot(true);
 
   server.begin();
+}
+
+void WiFiWebServer::loop() 
+{
+  ElegantOTA.loop();
 }
 
 void WiFiWebServer::onVersionRequest(AsyncWebServerRequest *request)

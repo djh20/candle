@@ -8,6 +8,7 @@ class WiFiWebServer
 {
   public:
     void begin();
+    void loop();
 
   private:
     static void onVersionRequest(AsyncWebServerRequest *request);
