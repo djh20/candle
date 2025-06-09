@@ -2,6 +2,7 @@
 #include "../../vehicle/vehicle_manager.h"
 #include "../../metric/metric_manager.h"
 #include <console.h>
+#include <ElegantOTA.h>
 
 JsonDocument WiFiWebServer::doc;
 
@@ -11,6 +12,9 @@ void WiFiWebServer::begin()
   server.on("/api/metrics", HTTP_GET, onMetricsRequest);
   server.on("/api/console", HTTP_POST, onConsoleRequest);
   server.on("/api/vehicle/task", HTTP_POST, onTaskRequest);
+
+  ElegantOTA.begin(&server);
+  ElegantOTA.setAutoReboot(true);
 
   server.begin();
 }
