@@ -18,6 +18,8 @@ class VehicleNissanLeaf: public Vehicle
     CanBus *mainBus;
 
     IntMetric<1> *modelVariant;
+    IntMetric<1> *wiperTempMin;
+    IntMetric<1> *wiperTempMax;
 
     FloatMetric<1> *speed;    
     IntMetric<1> *gear;

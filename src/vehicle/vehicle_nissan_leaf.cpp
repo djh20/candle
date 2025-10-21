@@ -12,8 +12,6 @@
 #define PRECON_AUTO_OFF_MS 30*60*1000
 #define PRECON_WIPERS_DEFER_MS 5*60*1000
 #define PRECON_WIPERS_INTERVAL_MS 2*60*1000
-#define PRECON_WIPERS_TEMPERATURE_MIN 0
-#define PRECON_WIPERS_TEMPERATURE_MAX 15
 
 #define FID_VCM_REQ 0x797
 #define FID_VCM_RES 0x79A
@@ -41,6 +39,8 @@ void VehicleNissanLeaf::begin()
   registerMetrics({
     /* Parameters */
     modelVariant = new IntMetric<1>(domain, "model_variant", MetricType::Parameter),
+    wiperTempMin = new IntMetric<1>(domain, "wiper_temp_min", MetricType::Parameter, Unit::Celsius),
+    wiperTempMax = new IntMetric<1>(domain, "wiper_temp_max", MetricType::Parameter, Unit::Celsius),
     
     /* Driving */
     speed = new FloatMetric<1>(domain, "speed", MetricType::Statistic, Unit::KilometersPerHour),
@@ -240,15 +240,14 @@ void VehicleNissanLeaf::loop()
       runTask(preconStopTask);
       preconActive = false;
     }
-
     // Turn on wipers after delay if ambient temperature within specified range
-    // Does this logic make any sense??? idk man
-    else if (!preconWipersActive && preconElapsedTime >= PRECON_WIPERS_DEFER_MS && ambientTemp->isValid())
+    else if (!preconWipersActive && preconElapsedTime >= PRECON_WIPERS_DEFER_MS && ambientTemp->isValid() && wiperTempMin->isValid() && wiperTempMax->isValid())
     {
       float temperature = ambientTemp->getValue();
-      bool withinTemperatureRange = temperature >= PRECON_WIPERS_TEMPERATURE_MIN && temperature <= PRECON_WIPERS_TEMPERATURE_MAX;
+      int minTemp = wiperTempMin->getValue();
+      int maxTemp = wiperTempMax->getValue();
 
-      if (withinTemperatureRange)
+      if (temperature >= minTemp && temperature < maxTemp)
       {
         preconWipersActive = true;
         setTaskInterval(wipersTask, PRECON_WIPERS_INTERVAL_MS);
