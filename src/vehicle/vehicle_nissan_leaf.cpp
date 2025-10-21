@@ -12,6 +12,7 @@
 #define PRECON_AUTO_OFF_MS 30*60*1000
 #define PRECON_WIPERS_DEFER_MS 5*60*1000
 #define PRECON_WIPERS_INTERVAL_MS 2*60*1000
+#define PRECON_KEYFOB_COMBO_TIMEOUT 1000
 
 #define FID_VCM_REQ 0x797
 #define FID_VCM_RES 0x79A
@@ -230,9 +231,11 @@ void VehicleNissanLeaf::loop()
 {
   Vehicle::loop();
 
+  uint32_t now = millis();
+
   if (preconActive) 
   {
-    uint32_t preconElapsedTime = millis() - preconStartMillis;
+    uint32_t preconElapsedTime = now - preconStartMillis;
 
     // Automatically halt cabin preconditioning if left on for too long
     if (preconElapsedTime >= PRECON_AUTO_OFF_MS)
@@ -253,6 +256,11 @@ void VehicleNissanLeaf::loop()
         setTaskInterval(wipersTask, PRECON_WIPERS_INTERVAL_MS);
       }
     }
+  }
+
+  if (lockButtonComboCounter > 0 && now - lastLockMillis >= PRECON_KEYFOB_COMBO_TIMEOUT)
+  {
+    lockButtonComboCounter = 0;
   }
 }
 
@@ -409,6 +417,27 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
         int16_t idealRemainingRange = rangeAtLastCharge - tripDistance->getValue();
         tripEfficiency->setValue(range->getValue() - idealRemainingRange);
+      }
+    }
+    else if (id == 0x351)
+    {
+      if ((data[1] & 0x40) != 0x00)
+      {
+        if (!lockButtonPressed && ignition->isValid() && ignition->getValue() == 0)
+        {
+          lockButtonPressed = true;
+          lastLockMillis = millis();
+
+          if (++lockButtonComboCounter >= 3)
+          {
+            preconActive ? runTask(preconStopTask) : runTask(preconStartTask);
+            lockButtonComboCounter = 0;
+          }
+        }
+      }
+      else
+      {
+        lockButtonPressed = false;
       }
     }
   }

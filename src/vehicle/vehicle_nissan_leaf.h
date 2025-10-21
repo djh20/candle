@@ -103,4 +103,8 @@ class VehicleNissanLeaf: public Vehicle
     bool preconActive = false;
     bool preconWipersActive = false;
     uint32_t preconStartMillis;
+
+    bool lockButtonPressed = false;
+    uint8_t lockButtonComboCounter = 0;
+    uint32_t lastLockMillis = 0;
 };
