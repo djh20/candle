@@ -140,7 +140,8 @@ void VehicleNissanLeaf::begin()
     "bcm_diag", mainBus, ID_BCM_REQ, diagStartReq, sizeof(diagStartReq)
   );
   bcmDiagTask->configureResponse(ID_BCM_RES, 1);
-  bcmDiagTask->maxAttemptDuration = 500;
+  bcmDiagTask->maxAttempts = 2;
+  bcmDiagTask->maxAttemptDuration = 250;
   registerTask(bcmDiagTask);
 
   bcmDiagExtendTask = new PollTask(
@@ -484,14 +485,14 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
     preconStartMillis = millis();
     preconActive = true;
     runTask(parkingLightsTask);
-    setTaskInterval(bcmDiagExtendTask, 1000); // Keeps parking lights on
+    //setTaskInterval(bcmDiagExtendTask, 1000); // Keeps parking lights on
   }
   else if (task == preconStopTask || task == tcuIdleTask)
   {
     preconActive = false;
     preconWipersActive = false;
     setTaskInterval(wipersTask, 0);
-    setTaskInterval(bcmDiagExtendTask, 0);
+    // setTaskInterval(bcmDiagExtendTask, 0);
   }
 }
 
