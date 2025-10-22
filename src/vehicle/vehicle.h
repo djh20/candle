@@ -7,7 +7,7 @@
 #include "can/poll_task.h"
 
 #define VEHICLE_MAX_BUSES 4
-#define VEHICLE_MAX_TASKS 16
+#define VEHICLE_MAX_TASKS 32
 
 class Vehicle: protected TaskCallbacks
 {

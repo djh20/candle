@@ -83,6 +83,8 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *bmsHealthTask;
 
     PollTask *vcmDiagTask;
+    PollTask *bcmDiagTask;
+    PollTask *bcmDiagExtendTask;
     
     PollTask *slowChargeCountTask;
     PollTask *quickChargeCountTask;
@@ -98,7 +100,8 @@ class VehicleNissanLeaf: public Vehicle
     PollTask *tcuIdleTask;
 
     PollTask *wipersTask;
-    PollTask *headlightsTask;
+    MultiTask *headlightsTask;
+    MultiTask *parkingLightsTask;
 
     bool preconActive = false;
     bool preconWipersActive = false;

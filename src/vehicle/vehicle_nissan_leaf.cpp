@@ -14,13 +14,16 @@
 #define PRECON_WIPERS_INTERVAL_MS 2*60*1000
 #define PRECON_KEYFOB_COMBO_TIMEOUT 1000
 
-#define FID_VCM_REQ 0x797
-#define FID_VCM_RES 0x79A
+#define ID_VCM_REQ 0x797
+#define ID_VCM_RES 0x79A
 
-#define FID_LBC_REQ 0x79B
-#define FID_LBC_RES 0x7BB
+#define ID_LBC_REQ 0x79B
+#define ID_LBC_RES 0x7BB
 
-#define FID_TCU 0x56E
+#define ID_BCM_REQ 0x745
+#define ID_BCM_RES 0x765
+
+#define ID_TCU 0x56E
 
 enum ModelVariant {
   MODEL_ZE0,    // 2011-2012
@@ -87,6 +90,7 @@ void VehicleNissanLeaf::begin()
   
   static const uint8_t emptyReq[8] = {};
   genericWakeTask = new PollTask("generic_wake", mainBus, 0x682, emptyReq, 1);
+  genericWakeTask->minAttemptDuration = 50;
 
   // This task spoofs the BCM wake up signal which causes some ECUs to come out of sleep 
   // mode and begin communicating.
@@ -94,18 +98,19 @@ void VehicleNissanLeaf::begin()
   gatewayWakeTask = new PollTask(
     "gateway_wake", mainBus, 0x35D, gatewayWakeReq, sizeof(gatewayWakeReq)
   );
+  gatewayWakeTask->minAttemptDuration = 50;
 
   // This task attempts to keep the bus awake by continuously sending wake requests.
   keepAwakeTask = new MultiTask("keep_awake");
   keepAwakeTask->add(0, genericWakeTask);
   keepAwakeTask->add(0, gatewayWakeTask);
-  keepAwakeTask->minAttemptDuration = 50;
+  // keepAwakeTask->minAttemptDuration = 50;
   keepAwakeTask->mode = TaskMode::RepeatUntilStopped;
   
   // This task requests battery energy stats from the BMS/LBC.
   static const uint8_t bmsEnergyReq[8] = {0x02, 0x21, 0x01};
-  bmsEnergyTask = new PollTask("bms_energy", mainBus, FID_LBC_REQ, bmsEnergyReq, sizeof(bmsEnergyReq));
-  bmsEnergyTask->configureResponse(FID_LBC_RES, 6);
+  bmsEnergyTask = new PollTask("bms_energy", mainBus, ID_LBC_REQ, bmsEnergyReq, sizeof(bmsEnergyReq));
+  bmsEnergyTask->configureResponse(ID_LBC_RES, 6);
   bmsEnergyTask->maxAttemptDuration = 500;
   registerTask(bmsEnergyTask);
 
@@ -115,33 +120,49 @@ void VehicleNissanLeaf::begin()
   registerTask(bmsEnergyTaskWakeful);
 
   static const uint8_t bmsHealthReq[8] = {0x02, 0x21, 0x61};
-  bmsHealthTask = new PollTask("bms_health", mainBus, FID_LBC_REQ, bmsHealthReq, sizeof(bmsHealthReq));
-  bmsHealthTask->configureResponse(FID_LBC_RES, 1);
+  bmsHealthTask = new PollTask("bms_health", mainBus, ID_LBC_REQ, bmsHealthReq, sizeof(bmsHealthReq));
+  bmsHealthTask->configureResponse(ID_LBC_RES, 1);
   bmsHealthTask->maxAttemptDuration = 500;
   bmsHealthTask->maxAttempts = 4;
   registerTask(bmsHealthTask);
 
-  static const uint8_t vcmDiagReq[8] = {0x02, 0x10, 0xC0};
+  static const uint8_t diagStartReq[8] = {0x02, 0x10, 0xC0}; // StartDiagnosticSession
+  static const uint8_t diagExtendReq[8] = {0x02, 0x3E, 0x00}; // TesterPresent
+
   vcmDiagTask = new PollTask(
-    "vcm_diag", mainBus, FID_VCM_REQ, vcmDiagReq, sizeof(vcmDiagReq)
+    "vcm_diag", mainBus, ID_VCM_REQ, diagStartReq, sizeof(diagStartReq)
   );
-  vcmDiagTask->configureResponse(FID_VCM_RES, 1);
+  vcmDiagTask->configureResponse(ID_VCM_RES, 1);
   vcmDiagTask->maxAttemptDuration = 500;
   registerTask(vcmDiagTask);
 
+  bcmDiagTask = new PollTask(
+    "bcm_diag", mainBus, ID_BCM_REQ, diagStartReq, sizeof(diagStartReq)
+  );
+  bcmDiagTask->configureResponse(ID_BCM_RES, 1);
+  bcmDiagTask->maxAttemptDuration = 500;
+  registerTask(bcmDiagTask);
+
+  bcmDiagExtendTask = new PollTask(
+    "bcm_diag_extend", mainBus, ID_BCM_REQ, diagExtendReq, sizeof(diagExtendReq)
+  );
+  bcmDiagExtendTask->configureResponse(ID_BCM_RES, 1);
+  bcmDiagExtendTask->maxAttemptDuration = 500;
+  registerTask(bcmDiagExtendTask);
+
   static const uint8_t slowChargeCountReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargeCountTask = new PollTask(
-    "slow_charge_count", mainBus, FID_VCM_REQ, slowChargeCountReq, sizeof(slowChargeCountReq)
+    "slow_charge_count", mainBus, ID_VCM_REQ, slowChargeCountReq, sizeof(slowChargeCountReq)
   );
-  slowChargeCountTask->configureResponse(FID_VCM_RES, 1);
+  slowChargeCountTask->configureResponse(ID_VCM_RES, 1);
   slowChargeCountTask->maxAttemptDuration = 500;
   registerTask(slowChargeCountTask);
 
   static const uint8_t quickChargeCountReq[8] = {0x03, 0x22, 0x12, 0x03};
   quickChargeCountTask = new PollTask(
-    "quick_charge_count", mainBus, FID_VCM_REQ, quickChargeCountReq, sizeof(quickChargeCountReq)
+    "quick_charge_count", mainBus, ID_VCM_REQ, quickChargeCountReq, sizeof(quickChargeCountReq)
   );
-  quickChargeCountTask->configureResponse(FID_VCM_RES, 1);
+  quickChargeCountTask->configureResponse(ID_VCM_RES, 1);
   quickChargeCountTask->maxAttemptDuration = 500;
   registerTask(quickChargeCountTask);
   
@@ -153,9 +174,9 @@ void VehicleNissanLeaf::begin()
 
   static const uint8_t chargeModeReq[8] = {0x03, 0x22, 0x11, 0x4E};
   chargeModeTask = new PollTask(
-    "charge_mode", mainBus, FID_VCM_REQ, chargeModeReq, sizeof(chargeModeReq)
+    "charge_mode", mainBus, ID_VCM_REQ, chargeModeReq, sizeof(chargeModeReq)
   );
-  chargeModeTask->configureResponse(FID_VCM_RES, 1);
+  chargeModeTask->configureResponse(ID_VCM_RES, 1);
   chargeModeTask->maxAttemptDuration = 500;
   registerTask(chargeModeTask);
 
@@ -178,7 +199,7 @@ void VehicleNissanLeaf::begin()
   registerTask(chargePortTask);
 
   static const uint8_t preconStartReq[] = {0x4E, 0x08, 0x12, 0x00};
-  PollTask *preconStartReqTask = new PollTask("cc_on_req", mainBus, FID_TCU, preconStartReq, sizeof(preconStartReq));
+  PollTask *preconStartReqTask = new PollTask("cc_on_req", mainBus, ID_TCU, preconStartReq, sizeof(preconStartReq));
   preconStartReqTask->minAttempts = 10;
   preconStartReqTask->minAttemptDuration = 100;
 
@@ -188,7 +209,7 @@ void VehicleNissanLeaf::begin()
   registerTask(preconStartTask);
 
   static const uint8_t preconStopReq[] = {0x56, 0x00, 0x01, 0x00};
-  PollTask *preconStopReqTask = new PollTask("cc_off_req", mainBus, FID_TCU, preconStopReq, sizeof(preconStopReq));
+  PollTask *preconStopReqTask = new PollTask("cc_off_req", mainBus, ID_TCU, preconStopReq, sizeof(preconStopReq));
   preconStopReqTask->minAttempts = 10;
   preconStopReqTask->minAttemptDuration = 100;
 
@@ -199,7 +220,7 @@ void VehicleNissanLeaf::begin()
 
   static const uint8_t tcuIdleTaskReq[4] = {0x86};
   tcuIdleTask = new PollTask(
-    "tcu_idle", mainBus, FID_TCU, tcuIdleTaskReq, sizeof(tcuIdleTaskReq)
+    "tcu_idle", mainBus, ID_TCU, tcuIdleTaskReq, sizeof(tcuIdleTaskReq)
   );
   tcuIdleTask->maxAttemptDuration = 0;
   registerTask(tcuIdleTask);
@@ -212,11 +233,23 @@ void VehicleNissanLeaf::begin()
   wipersTask->minAttemptDuration = 50;
   registerTask(wipersTask);
 
-  static const uint8_t headlightsReq[8] = {0x06};
-  headlightsTask = new PollTask(
-    "headlights", mainBus, 0x60D, headlightsReq, sizeof(headlightsReq)
-  );
+  static const uint8_t headlightsReq[8] = {0x04, 0x30, 0x3B, 0x20, 0x01};
+  PollTask *headlightsReqTask = new PollTask("headlights_req", mainBus, ID_BCM_REQ, headlightsReq, sizeof(headlightsReq));
+  headlightsTask = new MultiTask("headlights");
+  headlightsTask->add(0, genericWakeTask);
+  headlightsTask->add(1, gatewayWakeTask);
+  headlightsTask->add(2, bcmDiagTask);
+  headlightsTask->add(3, headlightsReqTask);
   registerTask(headlightsTask);
+
+  static const uint8_t parkingLightsReq[8] = {0x04, 0x30, 0x3A, 0x20, 0x01};
+  PollTask *parkingLightsReqTask = new PollTask("parking_lights_req", mainBus, ID_BCM_REQ, parkingLightsReq, sizeof(parkingLightsReq));
+  parkingLightsTask = new MultiTask("parking_lights");
+  parkingLightsTask->add(0, genericWakeTask);
+  parkingLightsTask->add(1, gatewayWakeTask);
+  parkingLightsTask->add(2, bcmDiagTask);
+  parkingLightsTask->add(3, parkingLightsReqTask);
+  registerTask(parkingLightsTask);
 
   // Trigger an update event to handle the loaded model variant parameter.
   metricUpdated(modelVariant);
@@ -449,12 +482,15 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
   {
     preconStartMillis = millis();
     preconActive = true;
+    runTask(parkingLightsTask);
+    setTaskInterval(bcmDiagExtendTask, 1000); // Keeps parking lights on
   }
   else if (task == preconStopTask || task == tcuIdleTask)
   {
     preconActive = false;
     preconWipersActive = false;
     setTaskInterval(wipersTask, 0);
+    setTaskInterval(bcmDiagExtendTask, 0);
   }
 }
 
