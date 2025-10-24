@@ -30,10 +30,6 @@ void CanBus::readIncomingFrame()
   
   if (!digitalRead(intPin)) // INT pin must be low
   {
-    // Set all bytes in data buffer to zero. This is not necessary and is only used
-    // to avoid showing data from previous frames when displaying all 8 bytes.
-    memset(frame.data, 0, sizeof(frame.data));
-
     if (mcp->readMessage(&frame) == MCP2515::ERROR_OK)
     {
       if (frame.can_id == monitoredMessageId || monitoredMessageId == 0xFFFF)
@@ -101,6 +97,20 @@ bool CanBus::sendFrame(uint32_t id, uint8_t *data, uint8_t dlc)
     log_w("Failed to verify transmission of CAN frame (id: %03X)", id);
     return false;
   }
+}
+
+void CanBus::setFilter(const uint32_t filter)
+{
+  mcp->setFilter(MCP2515::RXF0, false, filter); // RXB0
+  mcp->setFilter(MCP2515::RXF3, false, filter); // RXB1
+  mcp->setNormalMode();
+}
+
+void CanBus::setFilterMask(const uint32_t mask)
+{
+  mcp->setFilterMask(MCP2515::MASK0, false, mask); // RXB0
+  mcp->setFilterMask(MCP2515::MASK1, false, mask); // RXB1
+  mcp->setNormalMode();
 }
 
 void CanBus::setMonitoredMessageId(uint16_t id)

@@ -15,6 +15,7 @@ class WiFiWebServer
     static void onMetricsRequest(AsyncWebServerRequest *request);
     static void onConsoleRequest(AsyncWebServerRequest *request);
     static void onTaskRequest(AsyncWebServerRequest *request);
+    static void onCanRequest(AsyncWebServerRequest *request);
 
     AsyncWebServer server = AsyncWebServer(80);
     ESPAsyncHTTPUpdateServer updateServer;

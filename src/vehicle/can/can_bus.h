@@ -15,6 +15,8 @@ class CanBus
     void readIncomingFrame();
     void sendFlowControl(uint32_t id);
     bool sendFrame(uint32_t id, uint8_t *data, uint8_t dlc);
+    void setFilter(const uint32_t filter);
+    void setFilterMask(const uint32_t mask);
     void setMonitoredMessageId(uint16_t id);
     void startDiscovery();
     void stopDiscovery();
