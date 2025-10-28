@@ -127,7 +127,7 @@ void WiFiWebServer::onCanRequest(AsyncWebServerRequest *request)
       if (request->hasParam("mask"))
       {
         uint32_t mask = strtoul(request->getParam("mask")->value().c_str(), nullptr, 0);
-        bus->setFilter(mask);
+        bus->setFilterMask(mask);
       }
 
       request->send(200, "text/plain", "OK");
