@@ -127,7 +127,8 @@ void VehicleNissanLeaf::begin()
   registerTask(bmsHealthTask);
 
   static const uint8_t diagStartReq[8] = {0x02, 0x10, 0xC0}; // StartDiagnosticSession
-  static const uint8_t diagExtendReq[8] = {0x02, 0x3E, 0x00}; // TesterPresent
+  // static const uint8_t diagExtendReq[8] = {0x02, 0x3E, 0x00}; // TesterPresent
+  static const uint8_t diagEndReq[8] = {0x02, 0x10, 0x81};
 
   vcmDiagTask = new PollTask(
     "vcm_diag", mainBus, ID_VCM_REQ, diagStartReq, sizeof(diagStartReq)
@@ -144,12 +145,12 @@ void VehicleNissanLeaf::begin()
   bcmDiagTask->maxAttemptDuration = 250;
   registerTask(bcmDiagTask);
 
-  bcmDiagExtendTask = new PollTask(
-    "bcm_diag_extend", mainBus, ID_BCM_REQ, diagExtendReq, sizeof(diagExtendReq)
+  bcmDiagEndTask = new PollTask(
+    "bcm_diag_end", mainBus, ID_BCM_REQ, diagEndReq, sizeof(diagEndReq)
   );
-  bcmDiagExtendTask->configureResponse(ID_BCM_RES, 1);
-  bcmDiagExtendTask->maxAttemptDuration = 500;
-  registerTask(bcmDiagExtendTask);
+  bcmDiagEndTask->configureResponse(ID_BCM_RES, 1);
+  bcmDiagEndTask->maxAttemptDuration = 500;
+  registerTask(bcmDiagEndTask);
 
   static const uint8_t slowChargeCountReq[8] = {0x03, 0x22, 0x12, 0x05};
   slowChargeCountTask = new PollTask(
@@ -252,6 +253,35 @@ void VehicleNissanLeaf::begin()
   parkingLightsTask->add(2, bcmDiagTask);
   parkingLightsTask->add(3, parkingLightsReqTask);
   registerTask(parkingLightsTask);
+
+  // static const uint8_t rightTurnSignalReq[8] = {0x04, 0x30, 0x2F, 0x20, 0x01};
+  // PollTask *rightTurnSignalReqTask = new PollTask("right_turn_signal_req", mainBus, ID_BCM_REQ, rightTurnSignalReq, sizeof(rightTurnSignalReq));
+  // rightTurnSignalReqTask->minAttemptDuration = 500;
+
+  // static const uint8_t leftTurnSignalReq[8] = {0x04, 0x30, 0x2F, 0x20, 0x02};
+  // PollTask *leftTurnSignalReqTask = new PollTask("left_turn_signal_req", mainBus, ID_BCM_REQ, leftTurnSignalReq, sizeof(leftTurnSignalReq));  
+  // leftTurnSignalReqTask->minAttemptDuration = 500;
+
+  // turnSignalAlternateTask = new MultiTask("turn_signal_alternate");
+  // // turnSignalAlternateTask->add(0, genericWakeTask);
+  // // turnSignalAlternateTask->add(1, gatewayWakeTask);
+  // // turnSignalAlternateTask->add(2, bcmDiagTask);
+  // turnSignalAlternateTask->add(0, leftTurnSignalReqTask);
+  // turnSignalAlternateTask->add(1, rightTurnSignalReqTask);
+  // turnSignalAlternateTask->minAttempts = 5;
+  // registerTask(turnSignalAlternateTask);
+  
+  static const uint8_t exteriorBeeperReq[8] = {0x04, 0x30, 0x08, 0x20, 0x01};
+  PollTask *exteriorBeeperReqTask = new PollTask("exterior_beeper_req", mainBus, ID_BCM_REQ, exteriorBeeperReq, sizeof(exteriorBeeperReq));  
+  exteriorBeeperReqTask->minAttemptDuration = 1000;
+
+  exteriorBeeperTask = new MultiTask("exterior_beeper");
+  exteriorBeeperTask->add(0, genericWakeTask);
+  exteriorBeeperTask->add(1, gatewayWakeTask);
+  exteriorBeeperTask->add(2, bcmDiagTask);
+  exteriorBeeperTask->add(3, exteriorBeeperReqTask);
+  exteriorBeeperTask->add(4, bcmDiagEndTask);
+  registerTask(exteriorBeeperTask);  
 
   // Trigger an update event to handle the loaded model variant parameter.
   metricUpdated(modelVariant);
@@ -465,7 +495,15 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
 
           if (++lockButtonComboCounter >= 3)
           {
-            preconActive ? runTask(preconStopTask) : runTask(preconStartTask);
+            if (!preconActive)
+            {
+              runTask(exteriorBeeperTask);
+              runTask(preconStartTask);
+            }
+            else
+            {
+              runTask(preconStopTask);
+            }
             lockButtonComboCounter = 0;
           }
         }
@@ -484,15 +522,12 @@ void VehicleNissanLeaf::onTaskRun(Task *task)
   {
     preconStartMillis = millis();
     preconActive = true;
-    runTask(parkingLightsTask);
-    //setTaskInterval(bcmDiagExtendTask, 1000); // Keeps parking lights on
   }
   else if (task == preconStopTask || task == tcuIdleTask)
   {
     preconActive = false;
     preconWipersActive = false;
     setTaskInterval(wipersTask, 0);
-    // setTaskInterval(bcmDiagExtendTask, 0);
   }
 }
 
