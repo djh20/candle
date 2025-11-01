@@ -208,7 +208,7 @@ void VehicleNissanLeaf::begin()
   preconStartTask = new MultiTask("cc_on");
   preconStartTask->add(0, genericWakeTask);
   preconStartTask->add(1, preconStartReqTask);
-  preconStartTask->minAttemptDuration = 3000;
+  preconStartTask->minAttemptDuration = 2000;
   registerTask(preconStartTask);
 
   static const uint8_t preconStopReq[] = {0x56, 0x00, 0x01, 0x00};
@@ -499,6 +499,7 @@ void VehicleNissanLeaf::processFrame(CanBus *bus, const uint32_t &id, uint8_t *d
             {
               runTask(exteriorBeeperTask);
               runTask(preconStartTask);
+              runTask(headlightsTask);
             }
             else
             {
